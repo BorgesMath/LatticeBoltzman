@@ -5,17 +5,18 @@
 #include <queue>
 #include <sys/stat.h> // Para mkdir no Linux
 #include <sys/types.h>
+#include <cmath>      // Para std::abs, std::sqrt
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
 void create_output_directories() {
-    // Cria pastas modo Linux/Unix (0777 = permissão full)
-    // Se estivesse no Windows usaria _mkdir
+    // Cria pastas (0777 = permissão total no Linux/Mac)
+    // No Windows, essas chamadas podem precisar de adaptação se não usar MinGW/WSL
     mkdir("output", 0777);
     mkdir("output/concentracao", 0777);
     mkdir("output/velocidade", 0777);
-    std::cout << "Diretorios de saida criados/verificados." << std::endl;
+    std::cout << "Diretorios de saida verificados." << std::endl;
 }
 
 static inline uint8_t clamp8(double v) {
@@ -32,30 +33,60 @@ void jet_colormap(double v, uint8_t &r, uint8_t &g, uint8_t &b) {
 }
 
 void write_images(const LatticeMesh& mesh, int step) {
-    // 1. Concentração (Grayscale) -> output/concentracao/
+    // 1. Concentração com INTERFACE TRACKING -> output/concentracao/
     std::string fnameC = "output/concentracao/sim_conc_" + std::to_string(step) + ".png";
     std::vector<uint8_t> imgC(NX * NY * 3);
     
+    // Parâmetros visuais
+    const double INTERFACE_CENTER = 0.5;
+    const double INTERFACE_WIDTH = 0.04; // Espessura da linha preta
+
     #pragma omp parallel for
     for (int y = 0; y < NY; ++y) {
         for (int x = 0; x < NX; ++x) {
-            double c = mesh.C[mesh.idx(x,y)];
-            uint8_t v = clamp8(c * 255.0);
+            size_t id = mesh.idx(x,y);
             size_t p = 3 * (y * NX + x);
-            imgC[p+0] = v; imgC[p+1] = v; imgC[p+2] = v;
+            
+            // Sólido = Preto
+            if(mesh.mask[id] == 1) {
+                imgC[p]=0; imgC[p+1]=0; imgC[p+2]=0;
+                continue;
+            }
+
+            double c = mesh.C[id];
+            
+            // Segurança
+            if (c < 0.0) c = 0.0; 
+            if (c > 1.0) c = 1.0;
+
+            // --- COR DE FUNDO (Grayscale Invertido para melhor contraste) ---
+            // Branco (255) onde é Óleo (c=0)
+            // Cinza Escuro (50) onde é Invasor (c=1)
+            // Isso faz a linha preta ressaltar mais.
+            uint8_t val = clamp8((1.0 - c * 0.8) * 255.0); 
+            uint8_t r = val, g = val, b = val;
+
+            // --- TRACKING DA INTERFACE (LINHA PRETA) ---
+            // Se a concentração estiver perto de 0.5 (zona de mistura), pinta de preto sólido
+            if (std::abs(c - INTERFACE_CENTER) < INTERFACE_WIDTH) {
+                r = 0; g = 0; b = 0; 
+            }
+
+            imgC[p+0] = r; imgC[p+1] = g; imgC[p+2] = b;
         }
     }
     stbi_write_png(fnameC.c_str(), NX, NY, 3, imgC.data(), NX * 3);
 
-    // 2. Velocidade (Jet) -> output/velocidade/
+    // 2. Velocidade (Jet Colormap) -> output/velocidade/
     double max_v = 0.0;
+    // Encontrar máximo para normalizar
     for(int i=0; i<NX*NY; ++i) {
         if(mesh.mask[i]==0) {
             double mag = std::sqrt(mesh.ux[i]*mesh.ux[i] + mesh.uy[i]*mesh.uy[i]);
             if(mag > max_v) max_v = mag;
         }
     }
-    if(max_v <= 0.0) max_v = 1.0;
+    if(max_v <= 1e-9) max_v = 1.0;
 
     std::string fnameV = "output/velocidade/sim_vel_" + std::to_string(step) + ".png";
     std::vector<uint8_t> imgV(NX * NY * 3);
@@ -65,8 +96,9 @@ void write_images(const LatticeMesh& mesh, int step) {
         for (int x = 0; x < NX; ++x) {
             int id = mesh.idx(x,y);
             uint8_t r,g,b;
-            if (mesh.mask[id] == 1) { r=g=b=0; }
-            else {
+            if (mesh.mask[id] == 1) { 
+                r=g=b=0; 
+            } else {
                 double mag = std::sqrt(mesh.ux[id]*mesh.ux[id] + mesh.uy[id]*mesh.uy[id]);
                 jet_colormap(mag/max_v, r, g, b);
             }
@@ -77,6 +109,7 @@ void write_images(const LatticeMesh& mesh, int step) {
     stbi_write_png(fnameV.c_str(), NX, NY, 3, imgV.data(), NX * 3);
 }
 
+// --- MÉTRICAS (Mantidas iguais para o main.cpp funcionar) ---
 int countFingersColumn(const LatticeMesh &mesh, int x_mid, double threshold) {
     int count = 0;
     bool inFinger = false;
@@ -89,7 +122,6 @@ int countFingersColumn(const LatticeMesh &mesh, int x_mid, double threshold) {
 }
 
 int countConnectedComponents(const LatticeMesh &mesh, double threshold) {
-    // Implementação simplificada para poupar espaço, mantendo a lógica original
     std::vector<char> visited(NX*NY, 0);
     int components = 0;
     std::queue<std::pair<int,int>> q;
