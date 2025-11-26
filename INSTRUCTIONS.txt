@@ -1,0 +1,98 @@
+========================================================================
+GUIA DE USO E CONFIGURAÇÃO DA SIMULAÇÃO LBM (SAFFMAN-TAYLOR)
+========================================================================
+
+Este guia explica como compilar o código, como executá-lo e, o mais
+importante, como alterar os parâmetros físicos para testar diferentes
+cenários (ex: alterar a viscosidade, miscibilidade, porosidade).
+
+------------------------------------------------------------------------
+1. PRÉ-REQUISITOS E COMPILAÇÃO
+------------------------------------------------------------------------
+
+Você precisa de um compilador C++ (g++) e o arquivo 'stb_image_write.h'.
+
+Passo 1: Certifique-se que os 7 arquivos estão na mesma pasta:
+   - main.cpp
+   - Config.hpp
+   - LatticeMesh.hpp
+   - Boundary.cpp / Boundary.hpp
+   - Simulation.cpp / Simulation.hpp
+   - Utils.cpp / Utils.hpp
+   - stb_image_write.h (Se não tiver, baixe com o comando abaixo)
+     curl -L -o stb_image_write.h https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h
+
+Passo 2: Compilar
+   Abra o terminal na pasta e rode:
+   g++ -O3 -fopenmp main.cpp Boundary.cpp Simulation.cpp Utils.cpp -o lbm_sim
+
+   * -O3: Ativa otimização máxima (essencial para LBM).
+   * -fopenmp: Ativa paralelismo (usa todos os núcleos do seu CPU).
+
+Passo 3: Executar
+   No Linux/Mac: ./lbm_sim
+   No Windows:   lbm_sim.exe
+
+   O programa criará automaticamente a pasta "output/" e salvará as imagens lá.
+
+------------------------------------------------------------------------
+2. COMO ALTERAR A FÍSICA (Arquivo: Config.hpp)
+------------------------------------------------------------------------
+Toda a configuração física está centralizada no arquivo 'Config.hpp'.
+Você não precisa mexer nos arquivos .cpp para mudar a física.
+
+Abaixo, explico o que cada parâmetro faz e como ajustá-lo.
+
+A) ALTERAR A INSTABILIDADE (RAZÃO DE VISCOSIDADE)
+   Procure por: `constexpr double VISC_RATIO = 50.0;`
+   
+   - O que faz: Define quantas vezes o fluido residente (óleo) é mais viscoso
+     que o invasor (CO2/Água).
+   - Cenário Estável: Mude para 1.0 ou 0.5. O deslocamento será uniforme.
+   - Cenário Instável: Aumente para 100.0 ou 200.0. Os dedos serão mais finos
+     e ramificados (digitacao viscosa intensa).
+
+B) ALTERAR A MISCIBILIDADE (DIFUSÃO)
+   Procure por: `constexpr double PECLET = 100.0;`
+   
+   - O que faz: Controla a relação entre Advecção (movimento) e Difusão (mistura).
+     O modelo é sempre miscível, mas o Peclet controla o "quão rápido" eles se misturam.
+   - Mistura Rápida (Alta difusão): Diminua o PECLET (ex: 10.0). A interface
+     ficará borrada/esfumaçada. Isso tende a estabilizar os dedos menores.
+   - Mistura Lenta (Baixa difusão): Aumente o PECLET (ex: 1000.0). A interface
+     ficará muito nítida. Cuidado: valores muito altos podem gerar instabilidade numérica.
+
+C) ALTERAR VELOCIDADE DE INJEÇÃO
+   Procure por: `constexpr double U_INLET = 0.02;`
+   
+   - O que faz: Velocidade com que o fluido entra no domínio (em unidades de lattice).
+   - Recomendação: Mantenha baixo (abaixo de 0.1) para garantir que o método LBM
+     seja válido (incompressível). Se aumentar muito, a simulação "explode" (NaN).
+     Se diminuir muito, a simulação demora mais passos para evoluir.
+
+D) ALTERAR O MEIO POROSO
+   Procure por: `constexpr double POROSITY_TARGET = 0.75;`
+   
+   - O que faz: Define a porcentagem de espaço vazio (fluido). 0.75 significa 75% fluido.
+   - Mais fechado: Mude para 0.50 ou 0.40. Isso cria caminhos preferenciais mais
+     tortuosos, o que afeta muito a forma dos dedos viscosos.
+   - Mudar o padrão dos obstáculos: Altere `constexpr int OBSTACLE_SEED = 42;`
+     para qualquer outro número inteiro. Isso gera um novo mapa de obstáculos aleatório.
+
+------------------------------------------------------------------------
+3. RESOLUÇÃO DE PROBLEMAS
+------------------------------------------------------------------------
+
+1. "A simulação explodiu (valores NaN ou infinito)"
+   - Causa provável: Velocidade (U_INLET) muito alta ou Viscosidade muito baixa.
+   - Solução: Reduza U_INLET para 0.01 ou aumente NU_CO2 levemente.
+
+2. "Os dedos não aparecem, a frente avança reta"
+   - Causa provável: VISC_RATIO muito baixo ou difusão (PECLET baixo) muito alta.
+   - Solução: Aumente VISC_RATIO para > 20.0 e aumente PECLET para > 100.0.
+   - Verifique também se a perturbação inicial na função `initialize` (Simulation.cpp)
+     não foi removida. A instabilidade precisa de um "ruído" inicial para começar.
+
+3. "A simulação está muito lenta"
+   - O código usa OpenMP. Verifique se compilou com `-fopenmp`.
+   - Diminua o tamanho do domínio (NX, NY) em Config.hpp para testes rápidos.
