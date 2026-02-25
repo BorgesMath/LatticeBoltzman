@@ -9,6 +9,8 @@ NX = 600
 MAX_ITER = 8000
 SNAPSHOT_STEPS = 6
 
+PERIODIC_Y = False
+
 # ==========================================
 # 2. HIDRODINÂMICA E CINEMÁTICA
 # ==========================================
