@@ -4,10 +4,10 @@ import numpy as np
 # ==========================================
 # 1. PARÂMETROS DE SIMULAÇÃO E TOPOLOGIA
 # ==========================================
-NY = 300
-NX = 600
+NY = 400
+NX = 800
 MAX_ITER = 8000
-SNAPSHOT_STEPS = 6
+SNAPSHOT_STEPS = 15
 
 PERIODIC_Y = False
 
@@ -15,11 +15,11 @@ PERIODIC_Y = False
 # 2. HIDRODINÂMICA E CINEMÁTICA
 # ==========================================
 TAU_IN = 0.52   # Fluido Invasor (Baixa viscosidade)
-TAU_OUT = 3.0   # Fluido Residente (Alta viscosidade -> M ~ 125)
-U_INLET = 0.05  # Velocidade de avanço na fronteira de entrada
+TAU_OUT = 3.5   # Fluido Residente (Alta viscosidade -> M ~ 125)
+U_INLET = 0.02  # Velocidade de avanço na fronteira de entrada
 
 # Permeabilidade Absoluta Basal (Lattice Units)
-K_0 = 5000.0
+K_0 = 1500.0
 
 # ==========================================
 # 3. TERMODINÂMICA DE INTERFACE (CAHN-HILLIARD)
@@ -30,14 +30,14 @@ INTERFACE_WIDTH = 3.0
 CH_SUBSTEPS = 10
 DT_CH = 1.0 / CH_SUBSTEPS
 
-BETA = 3.0 * SIGMA * INTERFACE_WIDTH / 4.0
-KAPPA = 3.0 * SIGMA * INTERFACE_WIDTH / 8.0
+BETA =  0.001   #3.0 * SIGMA * INTERFACE_WIDTH / 4.0
+KAPPA =  0.016 #3.0 * SIGMA * INTERFACE_WIDTH / 8.0
 
 # ==========================================
 # 4. MAGNETOSTÁTICA
 # ==========================================
-H0 = 0.08
-CHI_MAX = 1.2
+H0 = 0.05
+CHI_MAX = 0.80
 SOR_OMEGA = 1.85 # Fator de sobre-relaxação (Otimizado para malha 600x300)
 
 # ==========================================
