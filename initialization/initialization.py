@@ -1,7 +1,6 @@
 # initialization.py
 import numpy as np
-from config import NY, NX, W_LBM, H0, INTERFACE_WIDTH, K_0
-
+from config.config import NY, NX, W_LBM, H0, INTERFACE_WIDTH, K_0 # Correção aqui
 
 def initialize_fields(mode_m, amplitude):
     """

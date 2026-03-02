@@ -1,7 +1,7 @@
 # poisson.py
 import numpy as np
 from numba import njit
-from config import SOR_OMEGA
+from config.config import SOR_OMEGA # Correção aqui
 
 
 @njit
