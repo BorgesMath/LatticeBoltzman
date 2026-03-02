@@ -1,11 +1,11 @@
 # lbm.py
 import numpy as np
 from numba import njit, prange
-from config import (BETA, KAPPA, TAU_OUT, TAU_IN, W_LBM, CX, CY, OPP, U_INLET)
-
+from config.config import (BETA, KAPPA, TAU_OUT, TAU_IN, W_LBM, CX, CY, OPP, U_INLET) # Correção aqui
 
 @njit(parallel=True)
 def lbm_step(f, phi, psi, rho, u_x, u_y, chi_field, K_field):
+
     """
     Integra a Equação LBM acoplada com forças magnéticas, capilares e arrasto poroso.
     O domínio é aberto no eixo X (Inlet de velocidade, Outlet de pressão/Neumann)

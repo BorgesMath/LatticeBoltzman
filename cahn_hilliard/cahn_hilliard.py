@@ -1,7 +1,7 @@
 # cahn_hilliard.py
 import numpy as np
 from numba import njit, prange
-from config import BETA, KAPPA, DT_CH, M_MOBILITY
+from config.config import BETA, KAPPA, DT_CH, M_MOBILITY
 
 
 @njit(parallel=True)

@@ -2,8 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from config import TAU_IN, TAU_OUT, SIGMA, U_INLET, H0, CHI_MAX, NY
-
+from config.config import TAU_IN, TAU_OUT, SIGMA, U_INLET, H0, CHI_MAX, NY # Correção aqui
 
 def compute_dimensionless_numbers():
     """

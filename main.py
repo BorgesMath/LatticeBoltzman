@@ -2,12 +2,12 @@
 import numpy as np
 from tqdm import tqdm
 
-from config import MAX_ITER, SNAPSHOT_STEPS, CHI_MAX, CH_SUBSTEPS
-from initialization import initialize_fields
-from poisson import solve_poisson_magnetic
-from cahn_hilliard import cahn_hilliard_substep
-from lbm import lbm_step
-import post_process
+from config.config import MAX_ITER, SNAPSHOT_STEPS, CHI_MAX, CH_SUBSTEPS
+from initialization.initialization import initialize_fields
+from poisson.poisson import solve_poisson_magnetic
+from cahn_hilliard.cahn_hilliard import cahn_hilliard_substep
+from lbm.lbm import lbm_step
+from post_process import post_process
 
 
 def run_simulation(mode_m=4, amplitude=5.0):
@@ -53,4 +53,4 @@ def run_simulation(mode_m=4, amplitude=5.0):
 
 
 if __name__ == "__main__":
-    run_simulation(mode_m=4, amplitude=5.0)
+    run_simulation(mode_m=4, amplitude=1.0)
