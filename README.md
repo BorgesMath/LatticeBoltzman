@@ -1,36 +1,52 @@
-# **Simulação Magneto-Hidrodinâmica de Instabilidades em Meios Porosos (LBM-PhaseField)**
+# 🧲 LBM-PhaseField: Instabilidade de Saffman-Taylor Magnética
 
-Este repositório contém uma implementação numérica estritamente acoplada para a simulação de escoamentos multifásicos em meios porosos sob a influência de campos magnéticos. O escopo físico investiga a **Instabilidade de Saffman-Taylor** (digitação viscosa) e sua modulação (supressão ou amplificação) através da competição entre forças magnéticas de Kelvin e forças capilares de Korteweg.
+Simulação numérica acoplada (Multifísica) para escoamentos multifásicos em meios porosos sob influência de campos magnéticos. O código investiga a competição entre **Digitação Viscosa** e **Forças Magnéticas** utilizando uma arquitetura segregada.
 
-A arquitetura numérica baseia-se em um esquema segregado contendo:
+---
 
-1.  **Método de Lattice Boltzmann (LBM)** para a hidrodinâmica subjacente.
-2.  **Campo de Fase (Cahn-Hilliard)** para a captura implícita da interface difusa.
-3.  **Solver Elíptico (Poisson)** para o cálculo do potencial magnetostático escalar.
+## ⚡ Workflow Numérico (Ciclo de Integração)
 
-## **🏗️ Arquitetura do Software e Acoplamento Numérico**
+O orquestrador (`main.py`) executa o seguinte acoplamento a cada passo de tempo $\Delta t$:
 
-O modelo adota uma abordagem de integração temporal particionada (esquema segregado). Em cada iteração de passo de tempo macroscópico ($\Delta t$), o orquestrador executa o fluxo sequencial abaixo, garantindo a atualização progressiva dos campos de força antes da etapa de colisão hidrodinâmica.
+```mermaid
+graph TD
+    A[Início t] --> B(1. Solver Poisson)
+    B -->|Calcula Potencial Magnético| C(2. Cahn-Hilliard)
+    C -->|Advecta Interface - Substeps| D(3. LBM-BGK)
+    D -->|Colisão e Streaming| E[Atualiza f, rho, u]
+    E --> F{t < Max?}
+    F -- Sim --> A
+    F -- Não --> G[Fim]
+    
+    style B fill:#f9f,stroke:#333
+    style C fill:#bbf,stroke:#333
+    style D fill:#bfb,stroke:#333
+ ```   
+    
+## 📂 Estrutura do Projeto
 
-**Ciclo de Integração (main.py):**
+A organização modular separa configuração, inicialização e kernels numéricos (compilados via `@njit`).
 
-1.  **Solver Magnetostático:** A suscetibilidade magnética $\chi(\phi)$ é atualizada. O solver de Poisson relaxa o potencial magnético $\psi$ baseado na nova distribuição de fases.
-2.  **Sub-ciclos de Cahn-Hilliard:** O campo de fase $\phi$ é advectado usando o campo de velocidade restrito $\mathbf{u}$. Devido à severa restrição de estabilidade difusiva ($M \Delta t < \Delta x^2$), esta etapa é sub-iterada (CH_SUBSTEPS).
-3.  **Solver Hidrodinâmico (LBM):** O potencial químico local e os gradientes magnéticos geram os tensores de estresse (forças de Korteweg e Kelvin). O LBM computa a colisão BGK modificada pelo esquema de Guo e realiza o *streaming* das populações, atualizando $f_i$ e $f_i^{eq}$.
-
-## **📂 Descrição Detalhada dos Módulos**
-
-A estrutura de diretórios separa rigorosamente as configurações, a inicialização e os solvers das EDPs. A biblioteca Numba é injetada nos *kernels* numéricos para compilação Just-In-Time (JIT) via decorador `@njit(parallel=True)`.
-
-* **config.py**: Definição global de escalares físicos e tensores discretos. Contém as restrições da malha, tempos de relaxação ($\tau$), coeficientes de Ginzburg-Landau ($\sigma, \xi$), mobilidade, amplitude magnética e os tensores de topologia do reticulado D2Q9 (pesos e velocidades discretas).
-* **initialization.py**: Define o Problema de Valor Inicial (PVI). Aloca os tensores em memória RAM e gera o campo de fase inicial com perturbação harmônica associada ao modo $m$ ($y = y_0 + \epsilon \cos(kx)$), inicializando as populações hidrodinâmicas no equilíbrio local.
-* **poisson.py**: Resolve a equação elíptica para $\psi$ utilizando o método iterativo de Sobre-Relaxação Sucessiva (SOR). As condições de contorno de Neumann asseguram campo tangencial nulo nas paredes.
-* **cahn_hilliard.py**: Resolve a equação não-linear parabólica/quártica do campo de fase. Utiliza esquema *Upwind* de diferenças finitas de 1ª ordem para o termo advectivo linear, vital para a supressão de oscilações espúrias na descontinuidade difusa.
-* **lbm.py**: *Kernel* da equação de transporte de Boltzmann. Acopla o termo de forçamento macroscópico ao operador de colisão BGK. Implementa a recuperação da velocidade macroscópica em meios porosos (modelo de Darcy-Brinkman não-linear) e condições de contorno abertas dinâmicas (*Velocity Inlet* / *Neumann Outlet*).
-* **lsa.py**: Rotina analítica para Análise de Estabilidade Linear (LSA). Computa a relação de dispersão $\omega(k)$ através dos adimensionais de controle ($Ca, Bo_m, Pe$), provendo uma predição teórica de estabilidade do modo inserido.
-* **post_process.py**: Pipeline de diagnósticos espaciais e temporais. Realiza a computação da métrica de curvatura da interface e exporta os campos estocados em tensores NumPy para imagens matriciais bidimensionais com mapas de contorno/corrente.
-* **main.py**: Orquestrador lógico do sistema. Gerencia o loop temporal principal e as chamadas sequenciais aos módulos acima.
-
+```text
+📦 LatticeBoltzman
+ ┣ 📜 main.py               # Orquestrador do loop temporal
+ ┣ 📂 config
+ ┃ ┗ 📜 config.py           # Parâmetros Físicos (Re, Ca, Bom) e Grid (D2Q9)
+ ┣ 📂 initialization
+ ┃ ┗ 📜 initialization.py   # PVI: Perturbação senoidal da interface
+ ┣ 📂 solvers
+ ┃ ┣ 📂 poisson             # Magnetostática
+ ┃ ┃ ┗ 📜 poisson.py        # Solver SOR para ∇·((1+χ)∇ψ) = 0
+ ┃ ┣ 📂 cahn_hilliard       # Interface Difusa
+ ┃ ┃ ┗ 📜 cahn_hilliard.py  # Evolução do parâmetro de ordem (ϕ)
+ ┃ ┗ 📂 lbm                 # Hidrodinâmica
+ ┃   ┗ 📜 lbm.py            # Kernel BGK + Forças (Guo) + Darcy-Brinkman
+ ┣ 📂 analytics
+ ┃ ┗ 📜 lsa.py              # Análise de Estabilidade Linear (Previsão Teórica)
+ ┗ 📂 post_process
+   ┗ 📜 post_process.py     # Exportação de VTK/PNG e métricas (Curvatura)
+```
+    
 ## **🧮 Formulação Matemático-Física Aplicada**
 
 ### **1. Dinâmica de Boltzmann no Reticulado (LBM-BGK)**
@@ -61,14 +77,20 @@ Na ausência de correntes de condução/deslocamento, o campo magnético é esca
 
 $$\nabla \cdot ((1 + \chi(\phi)) \nabla \psi) = 0$$
 
-## **📋 Requisitos e Execução**
 
-As dependências garantem suporte à manipulação tensorial multidimensional e execução paralela assíncrona compilada em hardware (JIT).
+## 🚀 Como Executar
 
-### **Pré-requisitos (Python 3.8+)**
+### Pré-requisitos
+Python 3.8+ com suporte a compilação JIT.
 
 ```bash
 pip install numpy numba matplotlib tqdm
+```
+### Rodando a Simulação
+Edite `config/config.py` para ajustar a malha ou física, e execute:
+
+```bash
+python main.py
 ```
 
 ### Referências Bibliográficas 
