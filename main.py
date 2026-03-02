@@ -49,6 +49,9 @@ def run_simulation(mode_m=4, amplitude=5.0):
 
     # Exportação Final
     post_process.export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir)
+
+    post_process.export_tip_position(phi, mode_m, base_dir)
+
     print(f"\nIntegração concluída. Diagnósticos em: {base_dir}")
 
 
