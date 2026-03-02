@@ -147,7 +147,9 @@ def run_tests():
                 [sys.executable, MAIN_SCRIPT],
                 cwd=ROOT_DIR,
                 capture_output=True,
-                text=True
+                text=True,
+                encoding='utf-8',  # Força leitura em UTF-8
+                errors='replace'  # Substitui caracteres ilegíveis por '?' em vez de travar
             )
 
             if process.returncode != 0:
