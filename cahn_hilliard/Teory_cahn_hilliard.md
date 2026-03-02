@@ -62,7 +62,6 @@ graph TD
     NextX --> NextY{Próximo y}
     NextY --> Start
     NextY --> End([Fim do Loop: mu preenchido])
-```
 
 #### 5.2.3 Condição de contorno no potencial quimico (Neumann)
 
@@ -112,14 +111,11 @@ graph TD
     
     H --> I["Euler Explícito: new_phi = phi[y, x] + dt_ch * (advection + diffusion)"]
     
-    I --> J{new_phi > 1.01?}
-    J -- Sim --> K1[new_phi = 1.01]
-    J -- Não --> L{new_phi < -1.01?}
+    I --> J["Condições de Contorno de Phi"]
+    J --> K1["Entrada (Inlet): phi_next[:, 0] = 1.0"]
+    J --> K2["Saída (Outlet): phi_next[:, -1] = phi_next[:, -2]"]
     
-    K1 --> M["Atribuição: phi_next[y, x] = new_phi"]
-    L -- Sim --> K2[new_phi = -1.01]
-    L -- Não --> M
-    K2 --> M
+    K2 --> L["Saturação (Clipping): phi_next = clip(phi_next, -1.0, 1.0)"]
     
-    M --> N[Fim do Loop Espacial]
+    L --> M[Fim do Loop Espacial]
     ```
