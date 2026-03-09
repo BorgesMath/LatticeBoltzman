@@ -1,4 +1,6 @@
-# poisson.py
+# NAUMMAN
+
+# Magnetismo.py
 import numpy as np
 from numba import njit
 from config.config import SOR_OMEGA # Correção aqui
