@@ -111,7 +111,7 @@ def run_simulation(mode_m=4, amplitude=2.0):
             # 3. Chama a função Numba com 10 argumentos explícitos
             psi = compute_paramagnetic_field_analytical(
                 psi,
-                current_lambda,
+                0,
                 NX,  # nx
                 NY,  # ny
                 k_wave,  # k

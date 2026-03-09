@@ -12,9 +12,9 @@ SNAPSHOT_STEPS = 6
 # ==========================================
 # 2. HIDRODINÂMICA E CINEMÁTICA
 # ==========================================
-TAU_IN = 0.52   # 0.52 Fluido Invasor (Baixa viscosidade)
-TAU_OUT = 0.52   # 3.0Fluido Residente (Alta viscosidade -> M ~ 125)
-U_INLET = 0.01  # 0.05Velocidade de avanço na fronteira de entrada
+TAU_IN = 1   # AUMENTADO DE 0.52 PARA 0.65 (Segurança contra overflow)
+TAU_OUT = 3.0
+U_INLET = 0.05
 
 # Permeabilidade Absoluta Basal (Lattice Units)
 K_0 = 5000.0 # 5000.0
@@ -35,14 +35,14 @@ KAPPA = 3.0 * SIGMA * INTERFACE_WIDTH / 8.0
 # 4. MAGNETOSTÁTICA E CONTROLE DE SOLVER
 # ==========================================
 # Opções: 'POISSON' (Numérico/SOR) ou 'PARAMAGNETICO' (Analítico/PDF)
-METODO_MAGNETISMO = 'PARAMAGNETICO'
+METODO_MAGNETISMO = 'POISSON'
 
 H0 = 0.08
 CHI_MAX = 1.2
 SOR_OMEGA = 1.85
 
 # Configurações para o Método Analítico (Paramagnético)
-H_ANGLE = 0.0  # 0.0 = Campo Vertical (Normal), 90.0 = Horizontal
+H_ANGLE = 90.0  # 0.0 = Campo Vertical (Normal), 90.0 = Horizontal
 
 # ==========================================
 # 5. TENSORES DO MODELO LBM D2Q9
