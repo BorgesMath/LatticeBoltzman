@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from config.config import MAX_ITER, SNAPSHOT_STEPS, CHI_MAX, CH_SUBSTEPS
 from initialization.initialization import initialize_fields
-from poisson.poisson import solve_poisson_magnetic
+from Magnetismo.poisson import solve_poisson_magnetic
 from cahn_hilliard.cahn_hilliard import cahn_hilliard_substep
 from lbm.lbm import lbm_step
 from post_process import post_process
@@ -49,8 +49,11 @@ def run_simulation(mode_m=4, amplitude=5.0):
 
     # Exportação Final
     post_process.export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir)
+
+    post_process.export_tip_position(phi, mode_m, base_dir)
+
     print(f"\nIntegração concluída. Diagnósticos em: {base_dir}")
 
 
 if __name__ == "__main__":
-    run_simulation(mode_m=4, amplitude=1.0)
+    run_simulation(mode_m=4, amplitude=1)

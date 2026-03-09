@@ -102,3 +102,24 @@ def export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir)
     plt.tight_layout()
     plt.savefig(os.path.join(base_dir, 'series_temporais', f"curvatura_modo_{mode_m}.png"), dpi=150)
     plt.close()
+
+
+def export_tip_position(phi, mode_m, base_dir):
+    """
+    Calcula e salva a posição x da ponta do dedo (onde phi muda de sinal no centro).
+    """
+    ny, nx = phi.shape
+    # Perfil na linha central (ou max x onde phi > 0)
+    # Assumindo fluido invasor phi > 0 e vindo da esquerda
+
+    # Encontra o maior índice x onde ainda existe fluido invasor (phi > 0)
+    # Filtra ruídos pequenos
+    indices = np.where(phi > 0.0)
+    if indices[1].size > 0:
+        max_x = np.max(indices[1])
+    else:
+        max_x = 0
+
+    path = os.path.join(base_dir, "tip_position.txt")
+    with open(path, 'w') as f:
+        f.write(str(max_x))
