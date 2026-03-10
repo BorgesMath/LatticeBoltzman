@@ -123,3 +123,63 @@ def export_tip_position(phi, mode_m, base_dir):
     path = os.path.join(base_dir, "tip_position.txt")
     with open(path, 'w') as f:
         f.write(str(max_x))
+
+
+# Adicione esta função no FINAL do arquivo post_process/post_process.py
+
+def export_growth_rate(amp_history, time_steps, mode_m, s_teorico, base_dir):
+    """
+    Compara a taxa de crescimento da amplitude numérica com a teórica (LSA).
+    Validação primária da física do mtodo.
+    """
+    plt.figure(figsize=(8, 6))
+
+    # Filtra ruídos numéricos iniciais e zeros
+    valid_mask = (amp_history > 0.1) & (time_steps > 300)
+    t_valid = time_steps[valid_mask]
+    amp_valid = amp_history[valid_mask]
+
+    if len(amp_valid) == 0:
+        print("Aviso: Amplitude insuficiente para gráfico de crescimento.")
+        return
+
+    # Eixo Y = ln(A(t) / A(0))
+    amp_0 = amp_valid[0]
+    ln_A_A0 = np.log(amp_valid / amp_0)
+
+    # 1. Plot Numérico
+    plt.plot(t_valid, ln_A_A0, 'b-', linewidth=2, label=r'LBM: $\ln(\lambda(t)/\lambda_0)$')
+
+    # 2. Plot Teórico (Reta originada no mesmo ponto inicial válido)
+    t_shifted = t_valid - t_valid[0]
+    reta_teorica = s_teorico * t_shifted
+    plt.plot(t_valid, reta_teorica, 'r--', linewidth=2, label=rf'LSA ($s = {s_teorico:.2e}$)')
+
+    # 3. Extração da Taxa Numérica (s_num) via Regressão Linear
+    # A LSA só é válida no regime linear (pequenas perturbações).
+    # Ajustamos a reta apenas nos primeiros 20% do crescimento válido.
+    limit_idx = max(2, int(len(t_valid) * 0.20))
+    t_linear = t_valid[:limit_idx]
+    ln_linear = ln_A_A0[:limit_idx]
+
+    if len(t_linear) > 1:
+        s_num, intercept = np.polyfit(t_linear - t_linear[0], ln_linear, 1)
+        plt.plot(t_linear, (s_num * (t_linear - t_linear[0]) + intercept), 'g:', linewidth=3,
+                 label=rf'Ajuste LBM ($s_{{num}} = {s_num:.2e}$)')
+
+        # Cálculo de Erro
+        erro_relativo = abs(s_num - s_teorico) / abs(s_teorico) * 100 if s_teorico != 0 else 0
+        plt.title(
+            f"Validação: Taxa de Crescimento (Modo {mode_m})\nErro Relativo no Regime Linear: {erro_relativo:.2f}%")
+    else:
+        plt.title(f"Validação: Taxa de Crescimento (Modo {mode_m})")
+
+    plt.xlabel("Iterações (t)")
+    plt.ylabel(r"$\ln(\lambda(t) / \lambda_0)$")
+    plt.legend()
+    plt.grid(True, alpha=0.5, linestyle=':')
+
+    path = os.path.join(base_dir, 'series_temporais', f"validacao_crescimento_modo_{mode_m}.png")
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.close()

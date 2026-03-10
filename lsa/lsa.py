@@ -1,92 +1,89 @@
-# lsa.py
+# lsa/lsa.py
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from config.config import TAU_IN, TAU_OUT, SIGMA, U_INLET, H0, CHI_MAX, NY # Correção aqui
-
-def compute_dimensionless_numbers():
-    """
-    Ponte de transferência: Converte parâmetros LBM para números adimensionais.
-    Nota: Ajuste os fatores de escala espacial/permeabilidade conforme as
-    definições exatas da sua tese geométrica.
-    """
-    # Viscosidades Cinemáticas LBM (nu = (tau - 0.5) / 3)
-    nu_in = (TAU_IN - 0.5) / 3.0
-    nu_out = (TAU_OUT - 0.5) / 3.0
-
-    # Razão de mobilidade (Viscosidade relativa)
-    lamb = nu_in / nu_out
-
-    # Contraste Magnético
-    Lambda = CHI_MAX
-
-    # Estimativas Adimensionais (Requerem calibração com o comprimento de referência L)
-    # Aqui utilizamos constantes proporcionais aos tensores do config.py
-    Da = 0.1  # Permeabilidade adimensional (fixado conforme seu script original)
-    Ca = (nu_in * U_INLET) / SIGMA  # Número Capilar (Viscosas / Capilares)
-
-    # Bond Magnético (Forças Magnéticas / Capilares)
-    # Proporcional a H0^2 * Chi / Sigma
-    Bom = (CHI_MAX * H0 ** 2) / SIGMA
-
-    return Da, Ca, lamb, Lambda, Bom
-
-
-def taxa_crescimento_normal(k, Bom, Da, Ca, lamb, Lambda):
-    """
-    Equação de dispersão para campo normal (theta = 0, fator angular = 1).
-    s = [Da * k / (Ca * (1 + lamb))] * [ -k^2 + Bom * k * Lambda ]
-    """
-    pre_fator = (Da * k) / (Ca * (1.0 + lamb))
-    termo_colchetes = -(k ** 2) + (Bom * k * Lambda)
-    return pre_fator * termo_colchetes
+from config.config import TAU_IN, TAU_OUT, SIGMA, U_INLET, H0, CHI_MAX, NY, K_0, H_ANGLE
 
 
 def analyze_stability(mode_m, output_dir):
     """
-    Avalia se o modo m inserido na inicialização crescerá ou decairá.
+    Realiza a Análise de Estabilidade Linear (LSA) rigorosamente em Lattice Units (LU).
+    Baseado na formulação analítica que acopla Saffman-Taylor com Paramagnetismo.
     """
-    Da, Ca, lamb, Lambda, Bom = compute_dimensionless_numbers()
 
-    # 1. Determinação do Número de Onda da Simulação
-    # k = 2 * pi * m / L (Onde L é a largura do domínio Y)
+    # 1. Propriedades Hidrodinâmicas (Viscosidade Dinâmica = Cinemática pois rho=1)
+    eta_in = (TAU_IN - 0.5) / 3.0
+    eta_out = (TAU_OUT - 0.5) / 3.0
+
+    # 2. Propriedades Magnéticas Vetoriais
+    angle_rad = np.radians(H_ANGLE)
+    H0n = H0 * np.cos(angle_rad)  # Componente Normal
+    H0t = H0 * np.sin(angle_rad)  # Componente Tangencial
+
+    mu0 = 1.0
+    mu1 = mu0 * (1.0 + CHI_MAX)
+    mu2 = mu0
+    fator_mu = (mu1 - mu2) / (mu1 + mu2)
+
+    # 3. Número de Onda (k) Dimensional (LU)
     k_sim = 2.0 * np.pi * mode_m / NY
 
-    # 2. Avaliação da Taxa de Crescimento para o modo específico
-    s_sim = taxa_crescimento_normal(k_sim, Bom, Da, Ca, lamb, Lambda)
+    def taxa_crescimento_dimensional(k):
+        # A. Força Motriz Viscosa (Desestabilizante)
+        t_visc = ((eta_out - eta_in) / K_0) * U_INLET
 
-    # 3. Geração do Espectro Contínuo para o Plot
-    k_array = np.linspace(0, max(5.0, k_sim * 2), 500)
-    s_array = taxa_crescimento_normal(k_array, Bom, Da, Ca, lamb, Lambda)
+        # B. Força Restauradora Capilar (Estabilizante)
+        t_cap = - (k ** 2) * SIGMA
 
-    # --- Plot e Exportação ---
+        # C. Força Magnética Direcional
+        t_mag = mu0 * CHI_MAX * k * fator_mu * ((H0n ** 2) - (H0t ** 2))
+
+        # Mobilidade Global
+        pre_fator = (K_0 * k) / (eta_in + eta_out)
+
+        return pre_fator * (t_visc + t_cap + t_mag)
+
+    # Cálculo da taxa para o modo simulado
+    s_sim = taxa_crescimento_dimensional(k_sim)
+
+    # Espectro Contínuo
+    k_array = np.linspace(0.001, max(0.5, k_sim * 3), 1000)
+    s_array = taxa_crescimento_dimensional(k_array)
+
+    # --- Plotagem Acadêmica ---
     plt.figure(figsize=(10, 6))
-    plt.plot(k_array, s_array, 'k-', linewidth=2, label='Curva de Dispersão LSA')
+    plt.plot(k_array, s_array, 'k-', linewidth=2, label='Curva de Dispersão LSA (Teórica)')
     plt.axhline(0, color='red', linestyle='--', linewidth=1)
+    plt.plot(k_sim, s_sim, 'ro', markersize=8, label=f'Modo Simulado ($m={mode_m}$)')
 
-    # Destacar o ponto exato que será simulado
-    plt.plot(k_sim, s_sim, 'ro', markersize=8, label=f'Modo Simulado (m={mode_m})')
+    # Anotação das forças
+    t_v = ((eta_out - eta_in) / K_0) * U_INLET
+    t_c = - (k_sim ** 2) * SIGMA
+    t_m = mu0 * CHI_MAX * k_sim * fator_mu * ((H0n ** 2) - (H0t ** 2))
+    anotacao_forcas = (
+        f"Contribuições de Força:\n"
+        f"Viscosa: {t_v:.2e}\n"
+        f"Capilar: {t_c:.2e}\n"
+        f"Magnética: {t_m:.2e}"
+    )
+    plt.text(0.95, 0.95, anotacao_forcas, transform=plt.gca().transAxes,
+             fontsize=10, verticalalignment='top', horizontalalignment='right',
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
 
-    plt.title(f"Análise de Estabilidade Linear - LBM config.py\n$Bo_m \approx {Bom:.2f}, Ca \approx {Ca:.2f}$")
-    plt.xlabel(r'Número de Onda ($k$)')
-    plt.ylabel(r'Taxa de Crescimento ($s$)')
+    plt.title(fr"Análise de Estabilidade Linear Exata (Lattice Units)")
+    plt.xlabel(r'Número de Onda $k$ ($pixel^{-1}$)')
+    plt.ylabel(r'Taxa de Crescimento $Re(s)$ ($ts^{-1}$)')
 
-    # Determinação do regime
-    regime = "INSTÁVEL (Crescimento de Dedos)" if s_sim > 0 else "ESTÁVEL (Atenuação da Perturbação)"
-    plt.text(0.05, 0.95, f"Regime Previsto: {regime}\n$s = {s_sim:.4e}$",
-             transform=plt.gca().transAxes, fontsize=12, verticalalignment='top',
-             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-
+    regime = "INSTÁVEL" if s_sim > 0 else "ESTÁVEL"
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, f"analise_lsa_modo_{mode_m}.png"), dpi=150)
     plt.close()
 
-    # Retorno no console para decisão em tempo de execução
     print(f"--- Diagnóstico Analítico (LSA) ---")
-    print(f"Modo m={mode_m} | k={k_sim:.4f} | Taxa s={s_sim:.4e}")
-    print(f"Previsão Teórica: Interface {regime}")
-    print(f"-----------------------------------\n")
+    print(f"Taxa Teórica de Crescimento (s): {s_sim:.6e} ts^-1")
+    print(f"Regime Previsto: {regime}")
+    print(f"-----------------------------------")
 
-    return s_sim > 0  # Retorna booleano indicando instabilidade
+    return s_sim

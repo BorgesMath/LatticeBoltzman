@@ -4,7 +4,7 @@ import numpy as np
 # ==========================================
 # 1. PARÂMETROS DE SIMULAÇÃO E TOPOLOGIA
 # ==========================================
-NY = 300
+NY = 2400
 NX = 600
 MAX_ITER = 5000
 SNAPSHOT_STEPS = 6
@@ -14,7 +14,7 @@ SNAPSHOT_STEPS = 6
 # ==========================================
 TAU_IN = 1   # AUMENTADO DE 0.52 PARA 0.65 (Segurança contra overflow)
 TAU_OUT = 3.0
-U_INLET = 0.05
+U_INLET = 0.1
 
 # Permeabilidade Absoluta Basal (Lattice Units)
 K_0 = 5000.0 # 5000.0
@@ -42,7 +42,7 @@ CHI_MAX = 1.2
 SOR_OMEGA = 1.85
 
 # Configurações para o Método Analítico (Paramagnético)
-H_ANGLE = 90.0  # 0.0 = Campo Vertical (Normal), 90.0 = Horizontal
+H_ANGLE = 0.0  # 0.0 = Campo Vertical (Normal), 90.0 = Horizontal
 
 # ==========================================
 # 5. TENSORES DO MODELO LBM D2Q9

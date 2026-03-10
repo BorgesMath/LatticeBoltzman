@@ -26,8 +26,12 @@ def cahn_hilliard_substep(phi, u_x, u_y):
             ux, uy = u_x[y, x], u_y[y, x]
 
             # Advecção direcional (Upwind de 1ª ordem) para estabilidade
-            dphi_dx = (phi[y, x] - phi[y, x - 1]) if ux > 0 else (phi[y, x + 1] - phi[y, x])
-            dphi_dy = (phi[y, x] - phi[y - 1, x]) if uy > 0 else (phi[y + 1, x] - phi[y, x])
+            #dphi_dx = (phi[y, x] - phi[y, x - 1]) if ux > 0 else (phi[y, x + 1] - phi[y, x])
+            #dphi_dy = (phi[y, x] - phi[y - 1, x]) if uy > 0 else (phi[y + 1, x] - phi[y, x])
+
+            # DIFERENÇA CENTRAL (Não-difusiva, O(dx^2))
+            dphi_dx = 0.5 * (phi[y, x + 1] - phi[y, x - 1])
+            dphi_dy = 0.5 * (phi[y + 1, x] - phi[y - 1, x])
 
             phi_next[y, x] = phi[y, x] + DT_CH * (M_MOBILITY * lap_mu - (ux * dphi_dx + uy * dphi_dy))
 
