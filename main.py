@@ -122,4 +122,4 @@ def run_simulation(mode_m=4, amplitude=2.0):
 
 
 if __name__ == "__main__":
-    run_simulation(mode_m=32, amplitude=2.0)
+    run_simulation(mode_m=8, amplitude=4.0)
