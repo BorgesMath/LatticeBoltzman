@@ -1,4 +1,5 @@
 # main.py
+import os
 import numpy as np
 from tqdm import tqdm
 
@@ -117,6 +118,33 @@ def run_simulation(mode_m=4, amplitude=2.0):
 
     # NOVO: Plota a validação de crescimento
     post_process.export_growth_rate(amp_history, time_steps, mode_m, s_teorico, base_dir)
+
+    # =================================================================
+    # EXTRAÇÃO DE DADOS PARA TESTE DE CONVERGÊNCIA
+    # =================================================================
+    try:
+        # Encontra as coordenadas X onde o fluido invasor (phi > 0) está presente
+        invasor_y, invasor_x = np.where(phi > 0)
+
+        if len(invasor_x) > 0:
+            tip_x = np.max(invasor_x)  # Posição mais avançada na malha
+        else:
+            tip_x = 0.0
+
+        # Salva o valor em txt dentro da pasta do modo atual (base_dir)
+        caminho_arquivo = os.path.join(base_dir, "tip_position.txt")
+        with open(caminho_arquivo, "w") as f_out:
+            f_out.write(str(tip_x))
+
+        # Fallback de segurança para o run_convergence.py original que procurava o modo 4
+        os.makedirs("st_analise_modo_4", exist_ok=True)
+        with open("st_analise_modo_4/tip_position.txt", "w") as f_fallback:
+            f_fallback.write(str(tip_x))
+
+        print(f"Métrica de convergência salva: x_tip = {tip_x} em {caminho_arquivo}")
+    except Exception as e:
+        print(f"Erro numérico ao alocar métrica de convergência: {e}")
+    # =================================================================
 
     print(f"\nIntegração concluída. Dados em: {base_dir}")
 

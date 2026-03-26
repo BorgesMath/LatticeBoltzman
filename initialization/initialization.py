@@ -27,7 +27,7 @@ def initialize_fields(mode_m, amplitude):
     Hx = H0 * np.cos(angle_rad)
     Hy = H0 * np.sin(angle_rad)
 
-    x_center = 80.0
+    x_center = NX * (80.0 / 600.0) # Mantém a proporção da malha original
 
     for y in range(NY):
         # Perturbação da interface (Saffman-Taylor)
