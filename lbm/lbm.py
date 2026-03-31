@@ -109,15 +109,17 @@ def lbm_step(f, phi, psi, rho, u_x, u_y, chi_field, K_field):
                     # Bounce-back simples (Half-way aproximado) nas paredes superior/inferior
                     f_new[y, x, OPP[i]] = f_val
 
+
     # =========================================================
     # 3. CONDIÇÕES DE CONTORNO MACROSCÓPICAS ABERTAS
     # =========================================================
 
-    # 3.1 Outlet (Extrapolação de Ordem Zero / Neumann)
-    # Força gradiente direcional nulo para mitigar reflexões acústicas no domínio aberto.
+    # 3.1 Outlet (Extrapolação Convectiva)
+    # Permite a queda linear da pressão, vital para escoamentos incompressíveis D2Q9.
     for y in prange(ny):
         for i in range(9):
-            f_new[y, nx - 1, i] = f_new[y, nx - 2, i]
+            f_new[y, nx - 1, i] = 2.0 * f_new[y, nx - 2, i] - f_new[y, nx - 3, i]
+
 
     # 3.2 Inlet (Dirichlet de Velocidade Constante)
     for y in prange(ny):

@@ -120,33 +120,34 @@ def run_simulation(mode_m=4, amplitude=2.0):
     post_process.export_growth_rate(amp_history, time_steps, mode_m, s_teorico, base_dir)
 
     # =================================================================
-    # EXTRAÇÃO DE DADOS PARA TESTE DE CONVERGÊNCIA
+    # EXTRAÇÃO DE DADOS PARA TESTE DE CONVERGÊNCIA (SUB-PIXEL)
     # =================================================================
     try:
-        # Encontra as coordenadas X onde o fluido invasor (phi > 0) está presente
-        invasor_y, invasor_x = np.where(phi > 0)
+        tip_x_subpixel = 0.0
+        ny_shape, nx_shape = phi.shape
 
-        if len(invasor_x) > 0:
-            tip_x = np.max(invasor_x)  # Posição mais avançada na malha
-        else:
-            tip_x = 0.0
+        for y in range(ny_shape):
+            crossings = np.where(np.diff(np.sign(phi[y, :])))[0]
+            if len(crossings) > 0:
+                x_idx = crossings[-1]
+                phi0 = phi[y, x_idx]
+                phi1 = phi[y, x_idx + 1]
 
-        # Salva o valor em txt dentro da pasta do modo atual (base_dir)
+                if np.abs(phi1 - phi0) > 1e-6:
+                    x_real = x_idx - phi0 / (phi1 - phi0)
+                    if x_real > tip_x_subpixel:
+                        tip_x_subpixel = x_real
+
         caminho_arquivo = os.path.join(base_dir, "tip_position.txt")
         with open(caminho_arquivo, "w") as f_out:
-            f_out.write(str(tip_x))
+            f_out.write(str(tip_x_subpixel))
 
-        # Fallback de segurança para o run_convergence.py original que procurava o modo 4
         os.makedirs("st_analise_modo_4", exist_ok=True)
         with open("st_analise_modo_4/tip_position.txt", "w") as f_fallback:
-            f_fallback.write(str(tip_x))
+            f_fallback.write(str(tip_x_subpixel))
 
-        print(f"Métrica de convergência salva: x_tip = {tip_x} em {caminho_arquivo}")
     except Exception as e:
         print(f"Erro numérico ao alocar métrica de convergência: {e}")
-    # =================================================================
-
-    print(f"\nIntegração concluída. Dados em: {base_dir}")
 
 
 if __name__ == "__main__":
