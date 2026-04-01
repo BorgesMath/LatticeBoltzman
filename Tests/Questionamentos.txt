@@ -1,0 +1,3 @@
+lbm_core -> Segue darcy? compara analiticamente com darcy ou preciso fazer um especifico para esse caso?
+cahn hilliard -> Devo usar os mesmo parametros no meu escoamento de STI, dado isso deve-se usar parametros pertos para avaliação
+mag -> Quanto ele usa do real codigo? como ele puxa
