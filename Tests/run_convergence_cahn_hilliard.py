@@ -18,7 +18,7 @@ if '--worker' in sys.argv:
     sys.path.insert(0, ROOT_DIR)
     from config.config import NY, NX, MAX_ITER, W_LBM, R_DROP, INTERFACE_WIDTH, SIGMA
     from lbm.lbm import lbm_step
-    from cahn_hilliard.cahn_hilliard import cahn_hilliard_substep
+    from Multifasico.cahn_hilliard import cahn_hilliard_substep
     from tqdm import tqdm
 
 

@@ -11,7 +11,7 @@ from initialization.initialization import initialize_fields
 from Magnetismo.poisson import solve_poisson_magnetic
 from Magnetismo.paramagnetico import compute_paramagnetic_field_analytical
 
-from cahn_hilliard.cahn_hilliard import cahn_hilliard_substep
+from Multifasico.cahn_hilliard import cahn_hilliard_substep
 from lbm.lbm import lbm_step
 from post_process import post_process
 from lsa.lsa import analyze_stability  # NOVO IMPORT

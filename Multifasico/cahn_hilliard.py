@@ -1,4 +1,4 @@
-# cahn_hilliard.py
+# Multifasico.py
 import numpy as np
 from numba import njit, prange
 from config.config import BETA, KAPPA, DT_CH, M_MOBILITY

@@ -16,7 +16,7 @@ if '--worker' in sys.argv:
     from config.config import NY, NX, MAX_ITER, W_LBM, INTERFACE_WIDTH, U_INLET
     from config.config import INITIAL_AMPLITUDE, CX, CY, TAU_IN, TAU_OUT
     from lbm.lbm import lbm_step
-    from cahn_hilliard.cahn_hilliard import cahn_hilliard_substep
+    from Multifasico.cahn_hilliard import cahn_hilliard_substep
 
     mode_m = int(sys.argv[2])
 
