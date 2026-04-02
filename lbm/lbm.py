@@ -1,11 +1,11 @@
 # lbm.py
 import numpy as np
 from numba import njit, prange
-from config.config import (BETA, KAPPA, TAU_OUT, TAU_IN, W_LBM, CX, CY, OPP, U_INLET) # Correção aqui
+from config.config import (BETA, KAPPA, TAU_OUT, TAU_IN, W_LBM, CX, CY, OPP, U_INLET)
+
 
 @njit(parallel=True)
 def lbm_step(f, phi, psi, rho, u_x, u_y, chi_field, K_field):
-
     """
     Integra a Equação LBM acoplada com forças magnéticas, capilares e arrasto poroso.
     O domínio é aberto no eixo X (Inlet de velocidade, Outlet de pressão/Neumann)
@@ -50,18 +50,18 @@ def lbm_step(f, phi, psi, rho, u_x, u_y, chi_field, K_field):
     # =========================================================
     for y in prange(ny):
         for x in prange(nx):
-            # 2.1 Termodinâmica e Permeabilidades Relativas
+            # 2.1 Termodinâmica e Viscosidade Local (Abordagem Meso-escala Estrita)
             S_inv = max(0.0, min(1.0, (phi[y, x] + 1.0) * 0.5))
-            S_res = 1.0 - S_inv
 
+            # Interpolação do tempo de relaxação
             tau = TAU_OUT + (TAU_IN - TAU_OUT) * S_inv
             omega = 1.0 / tau
 
-            kr_inv = max(S_inv ** 2, 1e-6)
-            kr_res = max(S_res ** 2, 1e-6)
+            # Viscosidade cinemática instantânea do nó
+            nu_local = (tau - 0.5) / 3.0
 
-            lambda_t = (kr_inv / nu_in) + (kr_res / nu_out)
-            sigma_drag = 1.0 / (K_field[y, x] * lambda_t)
+            # Arrasto de Darcy (Hele-Shaw puro, sem dupla penalidade de permeabilidade relativa)
+            sigma_drag = nu_local / K_field[y, x]
 
             # 2.2 Momentos Locais (Provisórios)
             rho_l = 0.0
@@ -109,22 +109,22 @@ def lbm_step(f, phi, psi, rho, u_x, u_y, chi_field, K_field):
                     # Bounce-back simples (Half-way aproximado) nas paredes superior/inferior
                     f_new[y, x, OPP[i]] = f_val
 
-
     # =========================================================
     # 3. CONDIÇÕES DE CONTORNO MACROSCÓPICAS ABERTAS
     # =========================================================
 
     # 3.1 Outlet (Extrapolação Convectiva)
-    # Permite a queda linear da pressão, vital para escoamentos incompressíveis D2Q9.
     for y in prange(ny):
         for i in range(9):
             f_new[y, nx - 1, i] = 2.0 * f_new[y, nx - 2, i] - f_new[y, nx - 3, i]
 
-
-    # 3.2 Inlet (Dirichlet de Velocidade Constante)
+    # 3.2 Inlet (Dirichlet de Velocidade Constante com Pressão Flutuante)
     for y in prange(ny):
+        # Extrapola a densidade (pressão) do interior para permitir a formação do gradiente de Darcy
+        rho_inlet = rho[y, 1]
         for i in range(9):
             cu_in = CX[i] * U_INLET
-            f_new[y, 0, i] = W_LBM[i] * 1.0 * (1.0 + 3.0 * cu_in + 4.5 * cu_in ** 2 - 1.5 * U_INLET ** 2)
+            f_new[y, 0, i] = W_LBM[i] * rho_inlet * (1.0 + 3.0 * cu_in + 4.5 * cu_in ** 2 - 1.5 * U_INLET ** 2)
 
+    # RETORNO DA FUNÇÃO (Recuperado)
     return f_new, rho, u_x, u_y
