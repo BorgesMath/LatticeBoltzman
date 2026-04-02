@@ -30,7 +30,7 @@ def initialize_fields(mode_m, amplitude):
     Hy = H0 * np.sin(angle_rad)
 
     # A posição inicial da interface mantém a proporção geométrica da malha base (NX=900)
-    x_center = NX * (80.0 / 900.0)
+    x_center = NX * (80.0 / 500) + 600
 
     for y in range(NY):
         # NOVO: Utiliza a amplitude rigorosamente escalonada (INITIAL_AMPLITUDE)

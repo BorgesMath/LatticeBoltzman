@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 
 def setup_output_dir(mode_m):
     base_dir = f"st_analise_modo_{mode_m}"
-    subdirs = ['fase', 'velocidade', 'densidade', 'magnetico', 'series_temporais']
+    # ADICIONADO DIRETÓRIO DE PRESSÃO
+    subdirs = ['fase', 'velocidade', 'densidade', 'magnetico', 'pressao', 'series_temporais']
 
     for subdir in subdirs:
         path = os.path.join(base_dir, subdir)
@@ -79,9 +80,19 @@ def export_fields(phi, psi, rho, u_x, u_y, mode_m, t, base_dir):
     plt.savefig(os.path.join(base_dir, 'magnetico', f"mag_{t:05d}.png"), dpi=150)
     plt.close()
 
+    # 5. NOVO: Campo de Pressão (Equação de Estado LBM)
+    plt.figure(figsize=(8, 4))
+    pressao = rho / 3.0  # P = rho * cs^2
+    im4 = plt.imshow(pressao, cmap='inferno', origin='lower')
+    plt.title(fr"Pressão Macroscópica ($P = \rho / 3$) - t={t}")
+    plt.colorbar(im4, fraction=0.046, pad=0.04)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(os.path.join(base_dir, 'pressao', f"pressao_{t:05d}.png"), dpi=150)
+    plt.close()
+
 
 def export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir):
-    # Gráfico da Massa Total
     plt.figure(figsize=(8, 4))
     plt.plot(time_steps, mass_history, color='blue', linewidth=1.5)
     plt.title("Conservação da Massa Total")
@@ -92,7 +103,6 @@ def export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir)
     plt.savefig(os.path.join(base_dir, 'series_temporais', f"massa_total_modo_{mode_m}.png"), dpi=150)
     plt.close()
 
-    # Gráfico da Curvatura Interfacial
     plt.figure(figsize=(8, 4))
     plt.plot(time_steps, curv_history, color='red', linewidth=1.5)
     plt.title("Curvatura Média Absoluta da Interface")
@@ -105,15 +115,7 @@ def export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir)
 
 
 def export_tip_position(phi, mode_m, base_dir):
-    """
-    Calcula e salva a posição x da ponta do dedo (onde phi muda de sinal no centro).
-    """
     ny, nx = phi.shape
-    # Perfil na linha central (ou max x onde phi > 0)
-    # Assumindo fluido invasor phi > 0 e vindo da esquerda
-
-    # Encontra o maior índice x onde ainda existe fluido invasor (phi > 0)
-    # Filtra ruídos pequenos
     indices = np.where(phi > 0.0)
     if indices[1].size > 0:
         max_x = np.max(indices[1])
@@ -125,52 +127,47 @@ def export_tip_position(phi, mode_m, base_dir):
         f.write(str(max_x))
 
 
-# Adicione esta função no FINAL do arquivo post_process/post_process.py
-
 def export_growth_rate(amp_history, time_steps, mode_m, s_teorico, base_dir):
-    """
-    Compara a taxa de crescimento da amplitude numérica com a teórica (LSA).
-    Validação primária da física do mtodo.
-    """
     plt.figure(figsize=(8, 6))
 
-    # Filtra ruídos numéricos iniciais e zeros
-    valid_mask = (amp_history > 0.1) & (time_steps > 300)
-    t_valid = time_steps[valid_mask]
-    amp_valid = amp_history[valid_mask]
+    # CORREÇÃO: Descarta estritamente os primeiros 10% da simulação (inércia/transiente)
+    idx_10_percent = int(len(time_steps) * 0.10)
+    t_corte = time_steps[idx_10_percent:]
+    amp_corte = amp_history[idx_10_percent:]
+
+    # Filtra ruídos numéricos
+    valid_mask = amp_corte > 1e-4
+    t_valid = t_corte[valid_mask]
+    amp_valid = amp_corte[valid_mask]
 
     if len(amp_valid) == 0:
         print("Aviso: Amplitude insuficiente para gráfico de crescimento.")
         return
 
-    # Eixo Y = ln(A(t) / A(0))
     amp_0 = amp_valid[0]
     ln_A_A0 = np.log(amp_valid / amp_0)
 
-    # 1. Plot Numérico
-    plt.plot(t_valid, ln_A_A0, 'b-', linewidth=2, label=r'LBM: $\ln(\lambda(t)/\lambda_0)$')
+    # Plot Numérico (apenas região pós-10%)
+    plt.plot(t_valid, ln_A_A0, 'b-', linewidth=2, label=r'LBM Numérico')
 
-    # 2. Plot Teórico (Reta originada no mesmo ponto inicial válido)
+    # Plot Teórico
     t_shifted = t_valid - t_valid[0]
     reta_teorica = s_teorico * t_shifted
-    plt.plot(t_valid, reta_teorica, 'r--', linewidth=2, label=rf'LSA ($s = {s_teorico:.2e}$)')
+    plt.plot(t_valid, reta_teorica, 'r--', linewidth=2, label=rf'LSA Teórica ($s = {s_teorico:.2e}$)')
 
-    # 3. Extração da Taxa Numérica (s_num) via Regressão Linear
-    # A LSA só é válida no regime linear (pequenas perturbações).
-    # Ajustamos a reta apenas nos primeiros 20% do crescimento válido.
-    limit_idx = max(2, int(len(t_valid) * 0.20))
+    # Extração Numérica Final (Regressão sobre o terço inicial da região válida para capturar o limite linear puro)
+    limit_idx = max(2, int(len(t_valid) * 0.33))
     t_linear = t_valid[:limit_idx]
     ln_linear = ln_A_A0[:limit_idx]
 
     if len(t_linear) > 1:
-        s_num, intercept = np.polyfit(t_linear - t_linear[0], ln_linear, 1)
-        plt.plot(t_linear, (s_num * (t_linear - t_linear[0]) + intercept), 'g:', linewidth=3,
-                 label=rf'Ajuste LBM ($s_{{num}} = {s_num:.2e}$)')
+        s_num_final, intercept = np.polyfit(t_linear - t_linear[0], ln_linear, 1)
+        plt.plot(t_linear, (s_num_final * (t_linear - t_linear[0]) + intercept), 'g:', linewidth=3,
+                 label=rf'Ajuste Final LBM ($s_{{num}} = {s_num_final:.2e}$)')
 
-        # Cálculo de Erro
-        erro_relativo = abs(s_num - s_teorico) / abs(s_teorico) * 100 if s_teorico != 0 else 0
-        plt.title(
-            f"Validação: Taxa de Crescimento (Modo {mode_m})\nErro Relativo no Regime Linear: {erro_relativo:.2f}%")
+        erro_final = abs(s_num_final - s_teorico) / abs(s_teorico) * 100 if s_teorico != 0 else 0
+        plt.title(f"Validação: Taxa de Crescimento Consolidada (Modo {mode_m})\n"
+                  f"Erro Relativo (s_num vs s_teo): {erro_final:.2f}% (Primeiros 10% ignorados)")
     else:
         plt.title(f"Validação: Taxa de Crescimento (Modo {mode_m})")
 
@@ -183,3 +180,9 @@ def export_growth_rate(amp_history, time_steps, mode_m, s_teorico, base_dir):
     plt.tight_layout()
     plt.savefig(path, dpi=150)
     plt.close()
+
+    if len(t_linear) > 1:
+        print(f"\n[Validação Física Final] Modo: {mode_m}")
+        print(f"Taxa Numérica Extraída: {s_num_final:.6e}")
+        print(f"Taxa Teórica Esperada:  {s_teorico:.6e}")
+        print(f"Erro Relativo OLS:      {erro_final:.2f}%")
