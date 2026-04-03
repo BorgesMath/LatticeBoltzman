@@ -7,34 +7,30 @@ cuda_path = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2'
 bin_dir_x64 = os.path.join(cuda_path, 'bin', 'x64')
 nvvm_bin_x64_dir = os.path.join(cuda_path, r'nvvm\bin\x64')
 
+# Nomes exatos dos binários no CUDA 13.2
 cudart_dll_path = os.path.join(bin_dir_x64, 'cudart64_13.dll')
 nvvm_dll_path = os.path.join(nvvm_bin_x64_dir, 'nvvm64_40_0.dll')
 libdevice_dir = os.path.join(cuda_path, r'nvvm\libdevice')
 
-# 2. Mapeamento de Variáveis do Compilador Numba
-os.environ['CUDA_HOME'] = cuda_path
-os.environ['CUDA_PATH'] = cuda_path
-os.environ['NUMBA_CUDA_NVVM'] = nvvm_dll_path
-os.environ['NUMBA_CUDA_LIBDEVICE'] = libdevice_dir
-
-# 3. Retenção de Escopo na Tabela de Resolução do PE Loader
-cuda_dll_handles = []
-if hasattr(os, 'add_dll_directory'):
-    cuda_dll_handles.append(os.add_dll_directory(bin_dir_x64))
-    cuda_dll_handles.append(os.add_dll_directory(nvvm_bin_x64_dir))
-
-# 4. Trancamento de Memória (Memory Lock) das DLLs na RAM
+# 2. Memory Lock (Trancamento de Memória RAM)
 old_cwd = os.getcwd()
 try:
     os.chdir(bin_dir_x64)
-    # Aloca as bibliotecas e SALVA os ponteiros para impedir o Garbage Collector de descarregá-las
     global_cudart_handle = ctypes.CDLL(cudart_dll_path, winmode=0)
     global_nvvm_handle = ctypes.CDLL(nvvm_dll_path, winmode=0)
 except Exception as e:
-    print(f"Erro fatal na pré-alocação das DLLs de C-Runtime: {e}", file=sys.stderr)
+    print(f"Erro Crítico de C-Runtime: {e}", file=sys.stderr)
     sys.exit(1)
 finally:
     os.chdir(old_cwd)
+
+# 3. MONKEY PATCHING (A intervenção obrigatória no cache do Numba)
+from numba.core import config as numba_config
+
+# Sobrescrevemos os ponteiros internos para que o Numba ignore a string "nvvm.dll"
+# e utilize o caminho absoluto do "nvvm64_40_0.dll" que acabamos de alocar.
+numba_config.CUDA_NVVM = nvvm_dll_path
+numba_config.CUDA_LIBDEVICE = libdevice_dir
 
 # ===============================================================
 # INÍCIO DO ESCOPO DA APLICAÇÃO (INTEGRAÇÃO LBM)
