@@ -1,25 +1,26 @@
 # lbm/lbm_gpu.py
 from numba import cuda
 
-
-# Tensores constantes na memória da GPU
 @cuda.jit(device=True)
 def get_cx(i):
     cx = (0, 1, 0, -1, 0, 1, -1, -1, 1)
     return cx[i]
-
 
 @cuda.jit(device=True)
 def get_cy(i):
     cy = (0, 0, 1, 0, -1, 1, 1, -1, -1)
     return cy[i]
 
-
 @cuda.jit(device=True)
 def get_w(i):
     w = (4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36)
     return w[i]
 
+@cuda.jit(device=True)
+def get_opp(i):
+    # Mapeamento do tensor de direções opostas
+    opp = (0, 3, 4, 1, 2, 7, 8, 5, 6)
+    return opp[i]
 
 @cuda.jit
 def lbm_forces_kernel(phi, psi, chi_field, Fx, Fy, ny, nx, BETA, KAPPA):
@@ -46,7 +47,6 @@ def lbm_forces_kernel(phi, psi, chi_field, Fx, Fy, ny, nx, BETA, KAPPA):
 
         Fx[y, x] = fx_loc
         Fy[y, x] = fy_loc
-
 
 @cuda.jit
 def lbm_collision_streaming_kernel(f, f_new, phi, rho, u_x, u_y, Fx, Fy, K_field, ny, nx, TAU_IN, TAU_OUT):
@@ -94,5 +94,20 @@ def lbm_collision_streaming_kernel(f, f_new, phi, rho, u_x, u_y, Fx, Fy, K_field
                 if 0 <= be_x < nx:
                     f_new[be_y, be_x, i] = f_val
             else:
-        # Bounce-back simples mapeando o índice oposto (OPP iterativo pode ser implementado em função device)
-        # ... Lógica de mapeamento reverso ...
+                # Condição de não-escorregamento nas paredes confinadas (Bounce-back)
+                f_new[y, x, get_opp(i)] = f_val
+
+@cuda.jit
+def lbm_boundaries_kernel(f_new, rho, ny, nx, U_INLET):
+    """ Kernel 1D para tratar contornos abertos em X """
+    y = cuda.grid(1)
+    if y < ny:
+        # Outlet (Extrapolação Convectiva)
+        for i in range(9):
+            f_new[y, nx - 1, i] = 2.0 * f_new[y, nx - 2, i] - f_new[y, nx - 3, i]
+
+        # Inlet (Dirichlet de Velocidade)
+        rho_inlet = rho[y, 1]
+        for i in range(9):
+            cu_in = get_cx(i) * U_INLET
+            f_new[y, 0, i] = get_w(i) * rho_inlet * (1.0 + 3.0 * cu_in + 4.5 * cu_in ** 2 - 1.5 * U_INLET ** 2)
