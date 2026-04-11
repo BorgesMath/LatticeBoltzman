@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 def dispersion_relation(alpha, M, Da, Ca, Bo):
     # Termo A: Instabilidade Viscosa
-    termo_viscoso = alpha * (1 - M) / (1 + M)
+    termo_viscoso = alpha * (M - 1) / (M + 1)
 
     # Termo B: Potencial (Darcy + Capilaridade + Gravidade)
     fator_mobilidade = Da / (Ca * (1 + M))

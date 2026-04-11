@@ -11,7 +11,7 @@ def get_max_growth_rate(M, Da, Ca, Bo, alpha_scan):
     Se zeta_max < 0, o sistema é estável.
     """
     # Termo Viscoso
-    termo_viscoso = alpha_scan * (1 - M) / (1 + M)
+    termo_viscoso = alpha * (M - 1) / (M + 1)
 
     # Termo Potencial (Capilaridade + Gravidade + Darcy)
     # Proteção contra divisão por zero se Ca for muito pequeno
