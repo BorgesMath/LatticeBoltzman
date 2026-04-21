@@ -2,11 +2,16 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from pyevtk.hl import gridToVTK
 
 
+# =============================================================================
+# 1. SETUP DE DIRETÓRIOS
+# =============================================================================
 def setup_output_dir(mode_m):
     base_dir = f"st_analise_modo_{mode_m}"
-    subdirs = ['fase', 'velocidade', 'densidade', 'magnetico', 'series_temporais']
+    # Remove as pastas de imagens 2D antigas e mantém apenas VTK e séries temporais
+    subdirs = ['vtk', 'series_temporais']
 
     for subdir in subdirs:
         path = os.path.join(base_dir, subdir)
@@ -16,6 +21,49 @@ def setup_output_dir(mode_m):
     return base_dir
 
 
+# =============================================================================
+# 2. EXPORTAÇÃO ESTRUTURADA (VTK - OTIMIZADA)
+# =============================================================================
+def export_fields_vtk(phi, psi, rho, u_x, u_y, mode_m, t, base_dir):
+    ny, nx = phi.shape
+
+    # Definição das coordenadas da grade cartesiana nodal
+    x = np.arange(0, nx + 1, dtype=np.float64)
+    y = np.arange(0, ny + 1, dtype=np.float64)
+    z = np.array([0.0, 1.0], dtype=np.float64)
+
+    # Transposição para ordem F-contiguous e reshape para 3D (X, Y, Z) exigido pelo VTK
+    phi_3d = phi.T.reshape((nx, ny, 1))
+    rho_3d = rho.T.reshape((nx, ny, 1))
+    psi_3d = psi.T.reshape((nx, ny, 1))
+
+    ux_3d = u_x.T.reshape((nx, ny, 1))
+    uy_3d = u_y.T.reshape((nx, ny, 1))
+    uz_3d = np.zeros_like(ux_3d)
+
+    # Cálculo do Gradiente Magnético in-situ para visualização
+    hy, hx = np.gradient(-psi)
+    hx_3d = hx.T.reshape((nx, ny, 1))
+    hy_3d = hy.T.reshape((nx, ny, 1))
+    hz_3d = np.zeros_like(hx_3d)
+
+    caminho_arquivo = os.path.join(base_dir, 'vtk', f"dados_macro_{t:05d}")
+
+    gridToVTK(
+        caminho_arquivo, x, y, z,
+        cellData={
+            "fase_phi": phi_3d,
+            "densidade_rho": rho_3d,
+            "potencial_psi": psi_3d,
+            "velocidade": (ux_3d, uy_3d, uz_3d),
+            "campo_magnetico_H": (hx_3d, hy_3d, hz_3d)
+        }
+    )
+
+
+# =============================================================================
+# 3. DIAGNÓSTICOS TOPOLÓGICOS E TEMPORAIS (MANTIDOS)
+# =============================================================================
 def compute_interface_curvature(phi):
     dy, dx = np.gradient(phi)
     d2y, dy_dx = np.gradient(dy)
@@ -31,57 +79,7 @@ def compute_interface_curvature(phi):
     return 0.0
 
 
-def export_fields(phi, psi, rho, u_x, u_y, mode_m, t, base_dir):
-    # 1. Campo de Fase
-    plt.figure(figsize=(8, 4))
-    im0 = plt.imshow(phi, cmap='RdBu', origin='lower')
-    plt.contour(phi, levels=[0], colors='black', linewidths=1)
-    plt.title(fr"Campo de Fase ($\phi$) - t={t}")
-    plt.colorbar(im0, fraction=0.046, pad=0.04)
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(os.path.join(base_dir, 'fase', f"fase_{t:05d}.png"), dpi=150)
-    plt.close()
-
-    # 2. Campo Vetorial de Velocidade
-    plt.figure(figsize=(8, 4))
-    u_mag = np.sqrt(u_x ** 2 + u_y ** 2)
-    im1 = plt.imshow(u_mag, cmap='viridis', origin='lower')
-    Y, X = np.mgrid[0:u_x.shape[0], 0:u_x.shape[1]]
-    plt.streamplot(X, Y, u_x, u_y, color='white', density=1.0, linewidth=0.5)
-    plt.title(fr"Velocidade Macroscópica ($|\mathbf{{u}}|$ e streamlines) - t={t}")
-    plt.colorbar(im1, fraction=0.046, pad=0.04)
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(os.path.join(base_dir, 'velocidade', f"vel_{t:05d}.png"), dpi=150)
-    plt.close()
-
-    # 3. Campo de Densidade
-    plt.figure(figsize=(8, 4))
-    im2 = plt.imshow(rho, cmap='plasma', origin='lower')
-    plt.title(fr"Densidade do Fluido ($\rho$) - t={t}")
-    plt.colorbar(im2, fraction=0.046, pad=0.04)
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(os.path.join(base_dir, 'densidade', f"rho_{t:05d}.png"), dpi=150)
-    plt.close()
-
-    # 4. Campo Magnético
-    plt.figure(figsize=(8, 4))
-    hy, hx = np.gradient(-psi)
-    h_mag = np.sqrt(hx ** 2 + hy ** 2)
-    im3 = plt.imshow(h_mag, cmap='magma', origin='lower')
-    plt.streamplot(X, Y, hx, hy, color='cyan', density=0.8, linewidth=0.5)
-    plt.title(fr"Campo Magnético ($|\mathbf{{H}}|$ e streamlines) - t={t}")
-    plt.colorbar(im3, fraction=0.046, pad=0.04)
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(os.path.join(base_dir, 'magnetico', f"mag_{t:05d}.png"), dpi=150)
-    plt.close()
-
-
 def export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir):
-    # Gráfico da Massa Total
     plt.figure(figsize=(8, 4))
     plt.plot(time_steps, mass_history, color='blue', linewidth=1.5)
     plt.title("Conservação da Massa Total")
@@ -92,7 +90,6 @@ def export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir)
     plt.savefig(os.path.join(base_dir, 'series_temporais', f"massa_total_modo_{mode_m}.png"), dpi=150)
     plt.close()
 
-    # Gráfico da Curvatura Interfacial
     plt.figure(figsize=(8, 4))
     plt.plot(time_steps, curv_history, color='red', linewidth=1.5)
     plt.title("Curvatura Média Absoluta da Interface")
@@ -105,15 +102,7 @@ def export_time_series(mass_history, curv_history, time_steps, mode_m, base_dir)
 
 
 def export_tip_position(phi, mode_m, base_dir):
-    """
-    Calcula e salva a posição x da ponta do dedo (onde phi muda de sinal no centro).
-    """
     ny, nx = phi.shape
-    # Perfil na linha central (ou max x onde phi > 0)
-    # Assumindo fluido invasor phi > 0 e vindo da esquerda
-
-    # Encontra o maior índice x onde ainda existe fluido invasor (phi > 0)
-    # Filtra ruídos pequenos
     indices = np.where(phi > 0.0)
     if indices[1].size > 0:
         max_x = np.max(indices[1])
@@ -123,63 +112,3 @@ def export_tip_position(phi, mode_m, base_dir):
     path = os.path.join(base_dir, "tip_position.txt")
     with open(path, 'w') as f:
         f.write(str(max_x))
-
-
-# Adicione esta função no FINAL do arquivo post_process/post_process.py
-
-def export_growth_rate(amp_history, time_steps, mode_m, s_teorico, base_dir):
-    """
-    Compara a taxa de crescimento da amplitude numérica com a teórica (LSA).
-    Validação primária da física do mtodo.
-    """
-    plt.figure(figsize=(8, 6))
-
-    # Filtra ruídos numéricos iniciais e zeros
-    valid_mask = (amp_history > 0.1) & (time_steps > 300)
-    t_valid = time_steps[valid_mask]
-    amp_valid = amp_history[valid_mask]
-
-    if len(amp_valid) == 0:
-        print("Aviso: Amplitude insuficiente para gráfico de crescimento.")
-        return
-
-    # Eixo Y = ln(A(t) / A(0))
-    amp_0 = amp_valid[0]
-    ln_A_A0 = np.log(amp_valid / amp_0)
-
-    # 1. Plot Numérico
-    plt.plot(t_valid, ln_A_A0, 'b-', linewidth=2, label=r'LBM: $\ln(\lambda(t)/\lambda_0)$')
-
-    # 2. Plot Teórico (Reta originada no mesmo ponto inicial válido)
-    t_shifted = t_valid - t_valid[0]
-    reta_teorica = s_teorico * t_shifted
-    plt.plot(t_valid, reta_teorica, 'r--', linewidth=2, label=rf'LSA ($s = {s_teorico:.2e}$)')
-
-    # 3. Extração da Taxa Numérica (s_num) via Regressão Linear
-    # A LSA só é válida no regime linear (pequenas perturbações).
-    # Ajustamos a reta apenas nos primeiros 20% do crescimento válido.
-    limit_idx = max(2, int(len(t_valid) * 0.20))
-    t_linear = t_valid[:limit_idx]
-    ln_linear = ln_A_A0[:limit_idx]
-
-    if len(t_linear) > 1:
-        s_num, intercept = np.polyfit(t_linear - t_linear[0], ln_linear, 1)
-        plt.plot(t_linear, (s_num * (t_linear - t_linear[0]) + intercept), 'g:', linewidth=3,
-                 label=rf'Ajuste LBM ($s_{{num}} = {s_num:.2e}$)')
-
-        # Cálculo de Erro
-        erro_relativo = abs(s_num - s_teorico) / abs(s_teorico) * 100 if s_teorico != 0 else 0
-        plt.title(
-            f"Validação: Taxa de Crescimento (Modo {mode_m})\nErro Relativo no Regime Linear: {erro_relativo:.2f}%")
-    else:
-        plt.title(f"Validação: Taxa de Crescimento (Modo {mode_m})")
-
-    plt.xlabel("Iterações (t)")
-    plt.ylabel(r"$\ln(\lambda(t) / \lambda_0)$")
-    plt.legend()
-    plt.grid(True, alpha=0.5, linestyle=':')
-
-    path = os.path.join(base_dir, 'series_temporais', f"validacao_crescimento_modo_{mode_m}.png")
-    plt.tight_layout()
-    plt.savefig(path, dpi=150)
-    plt.close()

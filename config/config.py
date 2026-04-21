@@ -6,26 +6,26 @@ import numpy as np
 # ==========================================
 NY = 600
 NX = 1800
-MAX_ITER = 60000
-SNAPSHOT_STEPS = 12
+MAX_ITER = 10000
+SNAPSHOT_STEPS = 200
 
 # ==========================================
 # 2. HIDRODINÂMICA E CINEMÁTICA
 # ==========================================
-TAU_IN = 3   # AUMENTADO DE 0.52 PARA 0.65 (Segurança contra overflow)
-TAU_OUT = 1
+TAU_IN = 0.6   # AUMENTADO DE 0.52 PARA 0.65 (Segurança contra overflow)
+TAU_OUT = 1.4
 U_INLET = 0.05
 
 # Permeabilidade Absoluta Basal (Lattice Units)
-K_0 = 2000.0 # 5000.0
+K_0 = 200.0 # 5000.0
 
 # ==========================================
 # 3. TERMODINÂMICA DE INTERFACE (CAHN-HILLIARD)
 # ==========================================
-M_MOBILITY = 0.005
+M_MOBILITY = 0.05 # 0.05
 SIGMA = 0.0001
 INTERFACE_WIDTH = 3.0
-CH_SUBSTEPS = 10
+CH_SUBSTEPS = 50
 DT_CH = 1.0 / CH_SUBSTEPS
 
 BETA = 3.0 * SIGMA * INTERFACE_WIDTH / 4.0
@@ -37,7 +37,7 @@ KAPPA = 3.0 * SIGMA * INTERFACE_WIDTH / 8.0
 # Opções: 'POISSON' (Numérico) ou SEI LÁ
 METODO_MAGNETISMO = 'POISSON'
 
-H0 = 0.08 # 0.08
+H0 = 0 # 0.08
 CHI_MAX = 1.2
 SOR_OMEGA = 1.85
 

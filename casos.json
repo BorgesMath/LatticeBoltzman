@@ -1,0 +1,20 @@
+[
+  {
+    "id_caso": "st_modo_4_amp_1",
+    "mode_m": 4,
+    "amplitude": 1.0,
+    "MAX_ITER": 10,
+    "SNAPSHOT_STEPS": 100,
+    "CHI_MAX": 0.5,
+    "CH_SUBSTEPS": 5
+  },
+  {
+    "id_caso": "st_modo_8_amp_5",
+    "mode_m": 8,
+    "amplitude": 5.0,
+    "MAX_ITER": 20,
+    "SNAPSHOT_STEPS": 200,
+    "CHI_MAX": 0.8,
+    "CH_SUBSTEPS": 10
+  }
+]
