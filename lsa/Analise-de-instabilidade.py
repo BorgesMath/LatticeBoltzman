@@ -22,6 +22,7 @@ fig, ax = plt.subplots(figsize=(8, 5))
 
 M_values = [1]
 # Estilos de linha distintos para visualização em escala de cinza
+
 line_styles = ['-']
 
 max_zeta_global = 0
@@ -33,7 +34,8 @@ for M_val, l_style in zip(M_values, line_styles):
         max_zeta_global = np.max(zeta)
 
     # Plotagem monocromática
-    ax.plot(alpha_range, zeta, label=rf'$M = {M_val}$', color='black',
+    label = rf'$M={M_val}$, $Da={Da_base}$, $Ca={Ca_base}$, $Bo={Bo_base}$'
+    ax.plot(alpha_range, zeta, label=label, color='black',
             linestyle=l_style, linewidth=1.5)
 
     # Marcador do cut-off wavenumber (raiz)
@@ -49,13 +51,13 @@ for M_val, l_style in zip(M_values, line_styles):
 ax.axhline(0, color='black', linestyle='-', linewidth=0.8)
 
 # Simetria do eixo Y
-zoom_factor = 2
-ax.set_ylim(-max_zeta_global * zoom_factor, max_zeta_global * zoom_factor)
-ax.set_xlim(0, 8)
+zoom_factor = 1.5
+ax.set_ylim(-4, max_zeta_global * zoom_factor)
+ax.set_xlim(0, 5)
 
 # Rótulos (Omitiu-se o título geral, assumindo o uso de caption no documento de texto)
-ax.set_xlabel(r"adimentional wavenumber, $\alpha^*$", fontsize=12)
-ax.set_ylabel(r"adimentional amplification factor, $\zeta^*$", fontsize=12)
+ax.set_xlabel(r"Dimensionless wavenumber, $\alpha^*$", fontsize=12)
+ax.set_ylabel(r"Dimensionless growth rate, $\zeta^*$", fontsize=12)
 
 # Configuração de ticks estilo publicação (Physical Review, JFM, etc.)
 ax.tick_params(axis='both', which='major', labelsize=10, direction='in',

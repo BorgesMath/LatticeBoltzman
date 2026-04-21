@@ -2,94 +2,68 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def dispersion_relation(alpha, M, Da, Ca, Bo):
-    # Termo A: Instabilidade Viscosa
-    termo_viscoso = alpha * (M - 1) / (M + 1)
+def components_dispersion(alpha, M, Da, Ca, Bo):
+    """
+    Decomposes the dimensionless dispersion relation into its 3 physical phenomena:
+    Viscous Forcing, Gravity, and Capillarity.
+    """
+    # 1. Viscous Forcing
+    viscous = alpha * (M - 1) / (M + 1)
 
-    # Termo B: Potencial (Darcy + Capilaridade + Gravidade)
-    fator_mobilidade = Da / (Ca * (1 + M))
-    termo_potencial = fator_mobilidade * alpha * (Bo - alpha ** 2)
+    # Common mobility factor for potential terms
+    mobility = Da / (Ca * (1 + M))
 
-    return termo_viscoso + termo_potencial
+    # 2. Gravity (Bond)
+    gravity = mobility * alpha * Bo
+
+    # 3. Capillarity (Surface Tension)
+    capillarity = -mobility * (alpha ** 3)
+
+    # Total Growth Rate
+    total = viscous + gravity + capillarity
+
+    return viscous, gravity, capillarity, total
 
 
-# --- Configuração Geral ---
-alpha_calc = np.linspace(0, 20, 1000)
-Da_base = 1e-4
+# --- Parameters Configuration ---
+alpha_range = np.linspace(0, 3, 500)
 
-# Criar figura
-fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
+M_val = 2.0
+Da_base = 1.0
+Ca_base = 1.0
+Bo_base = 1.0
 
-# ==============================================================================
-# GRÁFICO 1: VARIAÇÃO DE VISCOSIDADE (M)
-# ==============================================================================
-Ca_fix = 1e-3
-Bo_fix = 0.0
-M_values = [0.0, 0.2, 0.5, 0.8]
+visc, grav, capil, zeta_total = components_dispersion(alpha_range, M_val, Da_base, Ca_base, Bo_base)
 
-for M in M_values:
-    zeta = dispersion_relation(alpha_calc, M, Da_base, Ca_fix, Bo_fix)
-    ax1.plot(alpha_calc, zeta, label=f'M={M}', linewidth=2)
+# --- Plot Configuration ---
+fig, ax = plt.subplots(figsize=(8, 6))
 
-ax1.set_title(r"Efeito da Viscosidade ($M$)", fontsize=14)
-ax1.set_xlabel(r"$\alpha^*$", fontsize=12)
-ax1.set_ylabel(r"$\zeta^*$", fontsize=12)
-ax1.set_xlim(0, 10)
-# Zoom dinâmico
-ymax_M = np.max(dispersion_relation(alpha_calc, 0.0, Da_base, Ca_fix, Bo_fix))
-ax1.set_ylim(-1, ymax_M * 1.2)
-ax1.axhline(0, color='black', linestyle='--', alpha=0.5)
-ax1.grid(True, alpha=0.3)
-ax1.legend(loc='upper right')
+# LaTeX Labels with equations
+label_visc = r'Viscous Forcing: $\alpha^* \frac{M-1}{M+1}$'
+label_grav = r'Gravity: $\frac{Da}{Ca(1+M)} \alpha^* Bo$'
+label_capil = r'Capillarity: $-\frac{Da}{Ca(1+M)} {\alpha^*}^3$'
+label_total = r'Total Growth Rate ($\zeta^*$)'
 
-# ==============================================================================
-# GRÁFICO 2: VARIAÇÃO DE CAPILARIDADE (Ca)
-# ==============================================================================
-M_fix = 0.1
-Bo_fix = 0.0
-Ca_values = [1e-4, 5e-4, 1e-3, 5e-3]
+# Plotting components
+ax.plot(alpha_range, visc, label=label_visc, color='black', linestyle='--', linewidth=1.5)
+ax.plot(alpha_range, grav, label=label_grav, color='black', linestyle='-.', linewidth=1.5)
+ax.plot(alpha_range, capil, label=label_capil, color='black', linestyle=':', linewidth=1.5)
 
-for Ca in Ca_values:
-    zeta = dispersion_relation(alpha_calc, M_fix, Da_base, Ca, Bo_fix)
-    ax2.plot(alpha_calc, zeta, label=f'Ca={Ca:.0e}', linewidth=2)
+# Total resultant curve
+ax.plot(alpha_range, zeta_total, label=label_total, color='black', linestyle='-', linewidth=2.5)
 
-ax2.set_title(r"Efeito da Capilaridade ($Ca$)", fontsize=14)
-ax2.set_xlabel(r"$\alpha^*$", fontsize=12)
-ax2.set_xlim(0, 15)
-ymax_Ca = np.max(dispersion_relation(alpha_calc, M_fix, Da_base, 5e-3, Bo_fix))
-ax2.set_ylim(-1, ymax_Ca * 1.2)
-ax2.axhline(0, color='black', linestyle='--', alpha=0.5)
-ax2.grid(True, alpha=0.3)
-ax2.legend(loc='upper right')
+# --- Academic Formatting ---
+ax.axhline(0, color='black', linestyle='-', linewidth=0.8)
 
-# ==============================================================================
-# GRÁFICO 3: VARIAÇÃO DE GRAVIDADE (Bo)
-# ==============================================================================
-M_fix = 0.1
-Ca_fix = 1e-3
-Bo_values = [-2.0, 0.0, 2.0, 5.0]
+ax.set_xlabel(r"Dimensionless wavenumber, $\alpha^*$", fontsize=12)
+ax.set_ylabel(r"Dimensionless growth rate, $\zeta^*$", fontsize=12)
 
-for Bo in Bo_values:
-    zeta = dispersion_relation(alpha_calc, M_fix, Da_base, Ca_fix, Bo)
-    label = f'Bo={Bo}'
-    ax3.plot(alpha_calc, zeta, label=label, linewidth=2)
+ax.tick_params(axis='both', which='major', labelsize=10, direction='in', top=True, right=True)
 
-ax3.set_title(r"Efeito da Gravidade ($Bo$)", fontsize=14)
-ax3.set_xlabel(r"$\alpha^*$", fontsize=12)
-ax3.set_xlim(0, 10)
-ymax_Bo = np.max(dispersion_relation(alpha_calc, M_fix, Da_base, Ca_fix, 5.0))
-ax3.set_ylim(-2, ymax_Bo * 1.2)
-ax3.axhline(0, color='black', linestyle='--', alpha=0.5)
-ax3.grid(True, alpha=0.3)
-ax3.legend(loc='upper right')
+ax.set_xlim(0, 3)
+ax.set_ylim(-5, 4)
 
-# --- FINALIZAÇÃO E SALVAMENTO ---
-plt.suptitle("Análise de Estabilidade Linear: Saffman-Taylor Generalizado", fontsize=16, y=0.98)
+ax.legend(fontsize=11, loc='lower left', frameon=False)
+
 plt.tight_layout()
-
-# Salvar o gráfico
-nome_arquivo = "instabilidade_saffman_taylor_comparativo.png"
-plt.savefig(nome_arquivo, dpi=300, bbox_inches='tight')
-print(f"Gráfico salvo com sucesso em: {nome_arquivo}")
-
 plt.show()
