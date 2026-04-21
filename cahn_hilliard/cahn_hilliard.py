@@ -1,42 +1,43 @@
-# cahn_hilliard.py
+# cahn_hilliard/cahn_hilliard.py
 import numpy as np
 from numba import njit, prange
-from config.config import BETA, KAPPA, DT_CH, M_MOBILITY
 
 
-@njit(parallel=True)
-def cahn_hilliard_substep(phi, u_x, u_y):
+@njit(parallel=True, cache=True)
+def cahn_hilliard_substep(phi_in, phi_out, mu, u_x, u_y, beta, kappa, dt_ch, m_mobility):
     """
-    Resolve a equação de Cahn-Hilliard via discretização explícita com advecção Upwind.
+    Evolução da interface via equação de Cahn-Hilliard.
+    Double buffering: lê de phi_in e escreve em phi_out.
     """
-    ny, nx = phi.shape
-    phi_next = np.zeros_like(phi)
-    mu = np.zeros((ny, nx))
+    ny, nx = phi_in.shape
 
-    # 1. Cálculo do Potencial Químico (Bulk + Gradiente)
+    # Cálculo do Potencial Químico (Armazenado no buffer mu)
     for y in prange(1, ny - 1):
         for x in range(1, nx - 1):
-            lap_phi = phi[y, x + 1] + phi[y, x - 1] + phi[y + 1, x] + phi[y - 1, x] - 4.0 * phi[y, x]
-            mu[y, x] = 4.0 * BETA * phi[y, x] * (phi[y, x] ** 2 - 1.0) - KAPPA * lap_phi
+            # Laplaciano de phi (stencil de 5 pontos)
+            lap_phi = (phi_in[y, x + 1] + phi_in[y, x - 1] +
+                       phi_in[y + 1, x] + phi_in[y - 1, x] - 4.0 * phi_in[y, x])
 
-    # 2. Conservação e Transporte (Advecção + Difusão de Interface)
+            # mu = df/dphi - kappa*lap(phi)
+            mu[y, x] = 4.0 * beta * phi_in[y, x] * (phi_in[y, x] ** 2 - 1.0) - kappa * lap_phi
+
+    # Evolução Temporal (Advecção-Difusão)
     for y in prange(1, ny - 1):
         for x in range(1, nx - 1):
-            lap_mu = mu[y, x + 1] + mu[y, x - 1] + mu[y + 1, x] + mu[y - 1, x] - 4.0 * mu[y, x]
-            ux, uy = u_x[y, x], u_y[y, x]
+            # Laplaciano do Potencial Químico
+            lap_mu = (mu[y, x + 1] + mu[y, x - 1] +
+                      mu[y + 1, x] + mu[y - 1, x] - 4.0 * mu[y, x])
 
-            # Advecção direcional (Upwind de 1ª ordem) para estabilidade
-            #dphi_dx = (phi[y, x] - phi[y, x - 1]) if ux > 0 else (phi[y, x + 1] - phi[y, x])
-            #dphi_dy = (phi[y, x] - phi[y - 1, x]) if uy > 0 else (phi[y + 1, x] - phi[y, x])
+            # Termo Advectivo (Upwind ou Diferença Central - aqui Central para conservação)
+            dphi_dx = 0.5 * (phi_in[y, x + 1] - phi_in[y, x - 1])
+            dphi_dy = 0.5 * (phi_in[y + 1, x] - phi_in[y - 1, x])
 
-            # DIFERENÇA CENTRAL (Não-difusiva, O(dx^2))
-            dphi_dx = 0.5 * (phi[y, x + 1] - phi[y, x - 1])
-            dphi_dy = 0.5 * (phi[y + 1, x] - phi[y - 1, x])
+            advec = u_x[y, x] * dphi_dx + u_y[y, x] * dphi_dy
 
-            phi_next[y, x] = phi[y, x] + DT_CH * (M_MOBILITY * lap_mu - (ux * dphi_dx + uy * dphi_dy))
+            # Atualização em phi_out
+            phi_out[y, x] = phi_in[y, x] + dt_ch * (m_mobility * lap_mu - advec)
 
-    # 3. Condições de Contorno (Dirichlet na entrada, Neumann nas demais)
-    phi_next[:, 0] = 1.0
-    phi_next[:, -1] = phi_next[:, -2]
-
-    return np.clip(phi_next, -1.0, 1.0)
+    # Condições de Contorno de Dirichlet e Neumann (Inlet/Outlet)
+    for y in prange(ny):
+        phi_out[y, 0] = 1.0  # Fluido invasor puro na entrada
+        phi_out[y, nx - 1] = phi_out[y, nx - 2]  # Gradiente zero na saída

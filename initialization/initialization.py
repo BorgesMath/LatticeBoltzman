@@ -1,51 +1,64 @@
 # initialization/initialization.py
 import numpy as np
-from config.config import NY, NX, W_LBM, H0, INTERFACE_WIDTH, K_0, H_ANGLE
+from numba import njit, prange
+
+# Tensores D2Q9
+W_LBM = np.array([4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36], dtype=np.float64)
+CX = np.array([0, 1, 0, -1, 0, 1, -1, -1, 1], dtype=np.int32)
+CY = np.array([0, 0, 1, 0, -1, 1, 1, -1, -1], dtype=np.int32)
 
 
-def initialize_fields(mode_m, amplitude):
-    """
-    Aloca os tensores e define o Problema de Valor Inicial (PVI).
+@njit(parallel=True, cache=True)
+def _init_kernel(phi, f, psi, u_x, ny, nx, mode_m, amplitude, interface_width, x_center, Hx, Hy, u_inlet):
+    u_sq = u_inlet ** 2
 
-    ATUALIZAÇÃO:
-    - Inicialização do campo magnético (psi) agora respeita o ângulo H_ANGLE.
-    - Isso garante compatibilidade imediata com o solver de Poisson atualizado.
-    """
-    f = np.zeros((NY, NX, 9), dtype=np.float64)
-    phi = np.zeros((NY, NX), dtype=np.float64)
-    psi = np.zeros((NY, NX), dtype=np.float64)
-    rho = np.ones((NY, NX), dtype=np.float64)
-    u_x = np.zeros((NY, NX), dtype=np.float64)
-    u_y = np.zeros((NY, NX), dtype=np.float64)
+    for y in prange(ny):
+        # Condição da interface perturbada analiticamente
+        dist = x_center + amplitude * np.cos(2.0 * np.pi * mode_m * y / ny)
 
-    # Matriz de Permeabilidade Absoluta alocada a partir do config.py
-    K_field = np.ones((NY, NX), dtype=np.float64) * K_0
+        for x in range(nx):
+            phi[y, x] = -np.tanh((x - dist) / (interface_width / 2.0))
+            psi[y, x] = Hx * (nx - x) + Hy * (ny - y)
+            u_x[y, x] = u_inlet
 
-    # Decomposição do vetor campo magnético inicial
-    # Se H_ANGLE = 0, Hx = H0, Hy = 0 (Recupera o comportamento original)
-    angle_rad = np.radians(H_ANGLE)
-    Hx = H0 * np.cos(angle_rad)
-    Hy = H0 * np.sin(angle_rad)
-
-    x_center = 80.0
-
-    for y in range(NY):
-        # Perturbação da interface (Saffman-Taylor)
-        dist = x_center + amplitude * np.cos(2.0 * np.pi * mode_m * y / NY)
-
-        for x in range(NX):
-            # 1. Campo de Fase (Phi) - Interface difusa (tanh)
-            phi[y, x] = -np.tanh((x - dist) / (INTERFACE_WIDTH / 2.0))
-
-            # 2. Distribuição inicial de partículas (f) - Equilíbrio em repouso
+            # Inicialização termodinâmica rigorosa: f = f_eq(rho=1.0, u=u_inlet)
             for i in range(9):
-                f[y, x, i] = W_LBM[i] * rho[y, x]
+                cu = CX[i] * u_inlet  # u_y é assumido 0 neste instante
+                f[y, x, i] = W_LBM[i] * 1.0 * (1.0 + 3.0 * cu + 4.5 * (cu ** 2) - 1.5 * u_sq)
 
-            # 3. Potencial Magnético Escalar (Psi)
-            # Definido tal que H = -grad(Psi).
-            # Queremos H = (Hx, Hy), então Psi = -(Hx*x + Hy*y) + C.
-            # Usamos C = Hx*NX + Hy*NY para manter valores positivos (estética numérica),
-            # resultando em: Psi = Hx*(NX - x) + Hy*(NY - y)
-            psi[y, x] = Hx * (NX - x) + Hy * (NY - y)
 
-    return f, phi, psi, rho, u_x, u_y, K_field
+def initialize_fields(params):
+    ny, nx = params["NY"], params["NX"]
+    u_inlet = params["U_INLET"]
+
+    # Tensores de Evolução (Double Buffering)
+    f_a = np.empty((ny, nx, 9), dtype=np.float64)
+    f_b = np.empty((ny, nx, 9), dtype=np.float64)
+    phi_a = np.empty((ny, nx), dtype=np.float64)
+    phi_b = np.empty((ny, nx), dtype=np.float64)
+
+    # Campos de Estado e Auxiliares
+    psi = np.empty((ny, nx), dtype=np.float64)
+    rho = np.ones((ny, nx), dtype=np.float64)
+    u_x = np.empty((ny, nx), dtype=np.float64)
+    u_y = np.zeros((ny, nx), dtype=np.float64)  # Dinâmica inicial predominantemente horizontal
+    K_field = np.ones((ny, nx), dtype=np.float64) * params["K_0"]
+
+    # Buffers Dinâmicos do Kernel
+    Fx = np.zeros((ny, nx), dtype=np.float64)
+    Fy = np.zeros((ny, nx), dtype=np.float64)
+    mu_buffer = np.zeros((ny, nx), dtype=np.float64)
+
+    # Derivação do campo magnético externo
+    angle_rad = np.radians(params["H_ANGLE"])
+    Hx = params["H0"] * np.cos(angle_rad)
+    Hy = params["H0"] * np.sin(angle_rad)
+
+    _init_kernel(phi_a, f_a, psi, u_x, ny, nx, params["mode_m"],
+                 params["amplitude"], params["INTERFACE_WIDTH"], 80.0, Hx, Hy, u_inlet)
+
+    # Sincronização do estado inicial 'b' a partir de 'a'
+    f_b[:] = f_a[:]
+    phi_b[:] = phi_a[:]
+
+    return (f_a, f_b), (phi_a, phi_b), psi, rho, u_x, u_y, K_field, (Fx, Fy, mu_buffer)
