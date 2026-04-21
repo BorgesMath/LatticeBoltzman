@@ -1,4 +1,3 @@
-# lbm/lbm.py
 import numpy as np
 from numba import njit, prange
 
@@ -12,40 +11,38 @@ OPP = np.array([0, 3, 4, 1, 2, 7, 8, 5, 6], dtype=np.int32)
 @njit(parallel=True, cache=True)
 def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
              tau_in, tau_out, u_inlet, beta, kappa):
-    """
-    Kernel LBM com Double Buffering e Força de Brinkman-Forchheimer.
-    """
     ny, nx, _ = f_in.shape
 
     # 1. Cálculo de Forças Externas (Capilar + Magnética)
     for y in prange(1, ny - 1):
         for x in range(1, nx - 1):
-            # Gradientes de Fase (Tensão Superficial)
+            # Força Capilar (Korteweg)
             dx_phi = 0.5 * (phi[y, x + 1] - phi[y, x - 1])
             dy_phi = 0.5 * (phi[y + 1, x] - phi[y - 1, x])
             lap_phi = (phi[y, x + 1] + phi[y, x - 1] + phi[y + 1, x] + phi[y - 1, x] - 4.0 * phi[y, x])
             mu_c = 4.0 * beta * phi[y, x] * (phi[y, x] ** 2 - 1.0) - kappa * lap_phi
 
-            # Força Capilar (Korteweg)
             Fx[y, x] = mu_c * dx_phi
             Fy[y, x] = mu_c * dy_phi
 
-            # Força Magnética (Kelvin Force: M \cdot \nabla H)
-            # Aproximação via gradiente do potencial psi
+            # Força Magnética (Kelvin Force rigorosa via Hessiano)
             hx = -0.5 * (psi[y, x + 1] - psi[y, x - 1])
             hy = -0.5 * (psi[y + 1, x] - psi[y - 1, x])
-            # Nota: Adicione os termos de segunda ordem do tensor magnético se necessário
-            Fx[y, x] += chi[y, x] * hx
-            Fy[y, x] += chi[y, x] * hy
 
-    # 2. Colisão e Streaming
+            d2psi_dx2 = psi[y, x + 1] - 2.0 * psi[y, x] + psi[y, x - 1]
+            d2psi_dy2 = psi[y + 1, x] - 2.0 * psi[y, x] + psi[y - 1, x]
+            d2psi_dxy = 0.25 * (psi[y + 1, x + 1] - psi[y + 1, x - 1] - psi[y - 1, x + 1] + psi[y - 1, x - 1])
+
+            Fx[y, x] += chi[y, x] * (hx * (-d2psi_dx2) + hy * (-d2psi_dxy))
+            Fy[y, x] += chi[y, x] * (hx * (-d2psi_dxy) + hy * (-d2psi_dy2))
+
+    # 2. Colisão e Streaming (com Periodicidade em Y)
     nu_in = (tau_in - 0.5) / 3.0
     nu_out = (tau_out - 0.5) / 3.0
 
     for y in prange(ny):
         for x in prange(nx):
-            # Interpolação Linear da Relaxação e Permeabilidade
-            S_inv = (phi[y, x] + 1.0) * 0.5  # Fração do fluido invasor
+            S_inv = (phi[y, x] + 1.0) * 0.5
             S_res = 1.0 - S_inv
 
             tau = tau_out + (tau_in - tau_out) * S_inv
@@ -81,7 +78,6 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
             Fx_total = Fx[y, x] - (sigma_drag * rho_l * ux_phys)
             Fy_total = Fy[y, x] - (sigma_drag * rho_l * uy_phys)
 
-            # Colisão e Distribuição para f_out (Streaming implícito)
             for i in range(9):
                 cu = CX[i] * ux_phys + CY[i] * uy_phys
                 feq = W[i] * rho_l * (1.0 + 3.0 * cu + 4.5 * cu ** 2 - 1.5 * u_sq)
@@ -93,23 +89,29 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
 
                 f_val = f_in[y, x, i] * (1.0 - omega) + omega * feq + Si
 
-                # Streaming (Pull-system)
-                be_x, be_y = x + CX[i], y + CY[i]
-                if 0 <= be_y < ny:
-                    if 0 <= be_x < nx:
-                        f_out[be_y, be_x, i] = f_val
-                else:
-                    # Bounce-back simples nas paredes Norte/Sul
-                    f_out[y, x, OPP[i]] = f_val
+                # Streaming Periódico no Eixo Y, Aberto no Eixo X
+                be_y = (y + CY[i]) % ny
+                be_x = x + CX[i]
 
-    # 3. Condição de Fronteira (Inlet: Velocidade Constante / Outlet: Gradiente Zero)
+                if 0 <= be_x < nx:
+                    f_out[be_y, be_x, i] = f_val
+
+    # 3. Condições de Fronteira
     for y in prange(ny):
-        # Outlet Neumann
+        # Outlet Neumann (Gradiente Zero)
         for i in range(9):
             f_out[y, nx - 1, i] = f_out[y, nx - 2, i]
 
-        # Inlet Equilibrium (Zou-He ou Injeção de Equilíbrio Direta)
-        u_sq_in = u_inlet ** 2
-        for i in range(9):
-            cu_in = CX[i] * u_inlet
-            f_out[y, 0, i] = W[i] * 1.0 * (1.0 + 3.0 * cu_in + 4.5 * cu_in ** 2 - 1.5 * u_sq_in)
+        # Inlet (Zou-He Velocity Boundary Condition para u_x = u_inlet, u_y = 0)
+        # Calcula a densidade instantânea induzida pela contrapressão do meio poroso
+        rho_in = (1.0 / (1.0 - u_inlet)) * (
+                f_out[y, 0, 0] + f_out[y, 0, 2] + f_out[y, 0, 4] +
+                2.0 * (f_out[y, 0, 3] + f_out[y, 0, 6] + f_out[y, 0, 7])
+        )
+
+        # Reconstrói as populações entrantes (Leste, Nordeste, Sudeste) conservando o momento
+        f_out[y, 0, 1] = f_out[y, 0, 3] + (2.0 / 3.0) * rho_in * u_inlet
+        f_out[y, 0, 5] = f_out[y, 0, 7] - 0.5 * (f_out[y, 0, 2] - f_out[y, 0, 4]) + (1.0 / 6.0) * rho_in * u_inlet
+        f_out[y, 0, 8] = f_out[y, 0, 6] + 0.5 * (f_out[y, 0, 2] - f_out[y, 0, 4]) + (1.0 / 6.0) * rho_in * u_inlet
+
+    return f_out, rho, u_x, u_y

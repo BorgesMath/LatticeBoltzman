@@ -17,7 +17,7 @@ def _init_kernel(phi, f, psi, u_x, ny, nx, mode_m, amplitude, interface_width, x
         dist = x_center + amplitude * np.cos(2.0 * np.pi * mode_m * y / ny)
 
         for x in range(nx):
-            phi[y, x] = -np.tanh((x - dist) / (interface_width / 2.0))
+            phi[y, x] = -np.tanh((x - dist) / (interface_width ))
             psi[y, x] = Hx * (nx - x) + Hy * (ny - y)
             u_x[y, x] = u_inlet
 
