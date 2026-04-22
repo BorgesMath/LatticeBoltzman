@@ -17,8 +17,10 @@ def run_simulation(params):
     # --- Derivação Termodinâmica ---
     sigma = params["SIGMA"]
     int_width = params["INTERFACE_WIDTH"]
-    params["BETA"] = (3.0 * sigma) / (4.0 * int_width)
-    params["KAPPA"] = (3.0 * sigma * int_width) / 8.0
+    params["BETA"] = (3.0 * sigma) / (8.0 * int_width)
+    params["KAPPA"] = (3.0 * sigma * int_width) / 4.0
+    #params["BETA"] = (3.0 * sigma) / (4.0 * int_width)
+    #params["KAPPA"] = (3.0 * sigma * int_width) / 8.0
     params["DT_CH"] = 1.0 / params["CH_SUBSTEPS"]
 
     base_dir = post_process.setup_output_dir(params["id_caso"])
