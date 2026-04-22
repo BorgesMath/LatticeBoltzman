@@ -98,18 +98,32 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
 
     # 3. Condições de Fronteira
     for y in prange(ny):
-        # Outlet Neumann (Gradiente Zero)
-        for i in range(9):
-            f_out[y, nx - 1, i] = f_out[y, nx - 2, i]
+        # ---------------------------------------------------------
+        # OUTLET (Leste): Zou-He Constant Pressure (Density)
+        # Fixa rho = 1.0 e u_y = 0, permitindo que a pressão saia livremente
+        # ---------------------------------------------------------
+        rho_out = 1.0
 
-        # Inlet (Zou-He Velocity Boundary Condition para u_x = u_inlet, u_y = 0)
-        # Calcula a densidade instantânea induzida pela contrapressão do meio poroso
+        # Calcula a velocidade de saída u_x natural a partir do balanço de massa
+        ux_out = -1.0 + (f_out[y, nx - 1, 0] + f_out[y, nx - 1, 2] + f_out[y, nx - 1, 4] +
+                         2.0 * (f_out[y, nx - 1, 1] + f_out[y, nx - 1, 5] + f_out[y, nx - 1, 8])) / rho_out
+
+        # Reconstrói as populações que entram de volta no domínio (Oeste, Noroeste, Sudoeste)
+        f_out[y, nx - 1, 3] = f_out[y, nx - 1, 1] - (2.0 / 3.0) * rho_out * ux_out
+        f_out[y, nx - 1, 6] = f_out[y, nx - 1, 8] - 0.5 * (f_out[y, nx - 1, 2] - f_out[y, nx - 1, 4]) - (
+                    1.0 / 6.0) * rho_out * ux_out
+        f_out[y, nx - 1, 7] = f_out[y, nx - 1, 5] + 0.5 * (f_out[y, nx - 1, 2] - f_out[y, nx - 1, 4]) - (
+                    1.0 / 6.0) * rho_out * ux_out
+
+        # ---------------------------------------------------------
+        # INLET (Oeste): Zou-He Constant Velocity
+        # Fixa u_x = u_inlet e u_y = 0, calcula a pressão induzida
+        # ---------------------------------------------------------
         rho_in = (1.0 / (1.0 - u_inlet)) * (
                 f_out[y, 0, 0] + f_out[y, 0, 2] + f_out[y, 0, 4] +
                 2.0 * (f_out[y, 0, 3] + f_out[y, 0, 6] + f_out[y, 0, 7])
         )
 
-        # Reconstrói as populações entrantes (Leste, Nordeste, Sudeste) conservando o momento
         f_out[y, 0, 1] = f_out[y, 0, 3] + (2.0 / 3.0) * rho_in * u_inlet
         f_out[y, 0, 5] = f_out[y, 0, 7] - 0.5 * (f_out[y, 0, 2] - f_out[y, 0, 4]) + (1.0 / 6.0) * rho_in * u_inlet
         f_out[y, 0, 8] = f_out[y, 0, 6] + 0.5 * (f_out[y, 0, 2] - f_out[y, 0, 4]) + (1.0 / 6.0) * rho_in * u_inlet

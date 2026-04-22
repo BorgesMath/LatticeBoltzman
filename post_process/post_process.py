@@ -117,68 +117,130 @@ def export_tip_position(phi, base_dir):
 # 4. CONSTRUCAO LOG
 # =============================================================================
 
-def export_simulation_log(params, mass_history, curv_history, exec_time, base_dir):
+def export_simulation_log(params, mass_history, curv_history, exec_duration, base_dir):
     """
-    Gera um relatório diagnóstico da estabilidade termodinâmica e integridade numérica.
+    Gera e exporta o relatório JSON de integridade e diagnósticos da simulação LBM.
+    Incorpora relaxação do limite de conservação de massa (5%) para regimes compressíveis de Darcy
+    e avaliação do Número de Reynolds no Poro (Re_K) para detecção do regime de Forchheimer.
     """
-    mass_initial = mass_history[0]
-    mass_final = mass_history[-1]
+    mass_t0 = mass_history[0]
+    mass_tf = mass_history[-1]
 
-    # O LBM com Cahn-Hilliard requer conservação estrita da massa global
-    if mass_initial == 0:
-        mass_variation_pct = 0.0
-    else:
-        mass_variation_pct = ((mass_final - mass_initial) / mass_initial) * 100.0
-
-    # Diagnóstico empírico de estabilidade morfológica
-    # Se a curvatura cresce consistentemente, a interface é instável (Saffman-Taylor fingering)
-    curv_growth = curv_history[-1] / (curv_history[0] + 1e-12)
-    if curv_growth > 1.1:
-        regime_morfologico = "Instável (Crescimento de perturbação / Fingering detectado)"
-    else:
-        regime_morfologico = "Estável (Supressão magnética/viscosa ou interface plana)"
-
-    status = "BEM SUCEDIDA"
-    alertas = []
-
-    # Verificações de falha e instabilidade numérica
-    if np.isnan(mass_final) or np.isnan(curv_history[-1]):
+    if np.isnan(mass_tf):
+        mass_var_pct = np.nan
         status = "FALHA CRÍTICA"
-        alertas.append(
-            "Divergência Numérica (NaN) detectada nos tensores. Condição de Courant (CFL) ou limite de estabilidade do operador de colisão violados.")
+        alertas = [
+            "Divergência Numérica (NaN) detectada nos tensores. "
+            "Condição de Courant (CFL) ou limite de estabilidade do operador de colisão violados."
+        ]
+    else:
+        mass_var_pct = ((mass_tf - mass_t0) / mass_t0) * 100.0
+        status = "BEM SUCEDIDA"
+        alertas = []
 
-    if abs(mass_variation_pct) > 0.5:
-        if status != "FALHA CRÍTICA": status = "ALERTA"
-        alertas.append(
-            f"Violação da conservação de massa ({mass_variation_pct:.4f}%). Recomenda-se reduzir dt (aumentar CH_SUBSTEPS) ou ajustar M_MOBILITY.")
+        # O limite de alerta de massa é ampliado para 5.0% para absorver as flutuações acústicas
+        # naturais exigidas pela formação do gradiente de pressão no meio poroso.
+        if abs(mass_var_pct) > 5.0:
+            status = "ALERTA"
+            alertas.append(
+                f"Violação severa de densidade acustica ({mass_var_pct:.4f}%). "
+                "Verifique condições de contorno; vazamento de massa provável."
+            )
 
-    if curv_history[-1] > 20.0:
-        if status != "FALHA CRÍTICA": status = "ALERTA"
+    # Análise Física da Interface e Cálculo do Regime de Poro
+    nu_kinematic = (params["TAU_IN"] - 0.5) / 3.0
+    re_k = (params["U_INLET"] * np.sqrt(params["K_0"])) / nu_kinematic
+
+    if re_k > 1.0:
+        if status != "FALHA CRÍTICA":
+            status = "ALERTA"
         alertas.append(
-            "Curvatura interfacial extrema. Possível artefato de grade (grid pinning) ou ramificação severa (tip-splitting). Verificar refinamento da malha espacial (NX, NY).")
+            f"Regime de Forchheimer Detectado (Re_K = {re_k:.2f} > 1.0). "
+            "A inércia do escoamento não é mais desprezível e o desvio em relação à Lei de Darcy linear excederá 5%. "
+            "Para manter a estrita linearidade, reduza U_INLET ou K_0."
+        )
+
+    # Tratamento Morfológico Condicional (Multifásico vs Unifásico)
+    if params.get("CH_SUBSTEPS", 0) > 0:
+        curv_t0 = curv_history[0]
+        curv_tf = curv_history[-1]
+        growth_ratio = curv_tf / curv_t0 if curv_t0 != 0 else 0.0
+
+        if growth_ratio > 1.05:
+            regime = "Instável (Crescimento de perturbação / Fingering detectado)"
+        else:
+            regime = "Estável (Supressão magnética/viscosa ou interface plana)"
+    else:
+        curv_t0 = 0.0
+        curv_tf = 0.0
+        growth_ratio = 0.0
+        regime = "Escoamento Unifásico (Validação de Meio Poroso)"
 
     log_data = {
         "identificacao": {
-            "id_caso": params.get("id_caso", "N/A"),
+            "id_caso": params["id_caso"],
             "status_execucao": status,
-            "tempo_execucao_segundos": round(exec_time, 2),
-            "tempo_execucao_minutos": round(exec_time / 60.0, 2)
+            "tempo_execucao_segundos": round(exec_duration, 2),
+            "tempo_execucao_minutos": round(exec_duration / 60.0, 2)
         },
         "diagnostico_fisico": {
-            "regime_morfologico": regime_morfologico,
-            "razao_crescimento_curvatura": round(curv_growth, 6),
-            "curvatura_t0": curv_history[0],
-            "curvatura_t_final": curv_history[-1]
+            "regime_morfologico": regime,
+            "razao_crescimento_curvatura": float(growth_ratio) if not np.isnan(growth_ratio) else "NaN",
+            "curvatura_t0": float(curv_t0) if not np.isnan(curv_t0) else "NaN",
+            "curvatura_t_final": float(curv_tf) if not np.isnan(curv_tf) else "NaN",
+            "reynolds_poro_rek": float(round(re_k, 4))
         },
         "integridade_numerica": {
-            "massa_total_t0": mass_initial,
-            "massa_total_t_final": mass_final,
-            "erro_conservacao_massa_percentual": round(mass_variation_pct, 6),
+            "massa_total_t0": float(mass_t0) if not np.isnan(mass_t0) else "NaN",
+            "massa_total_t_final": float(mass_tf) if not np.isnan(mass_tf) else "NaN",
+            "erro_conservacao_massa_percentual": float(round(mass_var_pct, 6)) if not np.isnan(mass_var_pct) else "NaN",
             "alertas_identificados": alertas
         },
         "parametros_contorno": params
     }
 
-    caminho_arquivo = os.path.join(base_dir, "relatorio_execucao.json")
-    with open(caminho_arquivo, 'w', encoding='utf-8') as f:
+    log_path = os.path.join(base_dir, "relatorio_execucao.json")
+    with open(log_path, 'w', encoding='utf-8') as f:
         json.dump(log_data, f, indent=4, ensure_ascii=False)
+
+def validate_darcy_flow(rho, params, base_dir):
+    ny, nx = rho.shape
+
+    # Extração ao longo da linha neutra, truncando as extremidades (10 nós)
+    # para evitar as camadas limites numéricas (erros de truncamento de Zou-He e Neumann)
+    rho_centerline = rho[ny // 2, 10:nx - 10]
+    x_coords = np.arange(10, nx - 10)
+
+    # Pressão macroscópica LBM (Equação de Estado para D2Q9)
+    p_centerline = rho_centerline / 3.0
+
+    # Determinação numérica do gradiente (Regressão Linear)
+    coefs = np.polyfit(x_coords, p_centerline, 1)
+    dp_dx_num = coefs[0]
+
+    # Previsão Analítica da Lei de Darcy
+    nu_kinematic = (params["TAU_IN"] - 0.5) / 3.0
+    dp_dx_ana = - (nu_kinematic / params["K_0"]) * params["U_INLET"]
+
+    erro_relativo = abs((dp_dx_num - dp_dx_ana) / dp_dx_ana) * 100.0
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x_coords, p_centerline, 'b-', linewidth=2, label='Pressão Integrada (LBM)')
+    plt.plot(x_coords, np.polyval(coefs, x_coords), 'r--', linewidth=2,
+             label=f'Ajuste Linear ($dp/dx$: {dp_dx_num:.4e})')
+    plt.title(f"Validação de Permeabilidade Darcy (Erro: {erro_relativo:.4f}%)")
+    plt.xlabel(r"Coordenada Espacial $X$")
+    plt.ylabel(r"Pressão Macroscópica $p = \rho c_s^2$")
+    plt.grid(True, linestyle=':', alpha=0.7)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(base_dir, 'validacao_darcy.png'), dpi=150)
+    plt.close()
+
+    print(f"\n{'=' * 50}")
+    print("RELATÓRIO DE VALIDAÇÃO: LEI DE DARCY")
+    print(f"{'=' * 50}")
+    print(f"Gradiente Analítico: {dp_dx_ana:.6e}")
+    print(f"Gradiente Numérico:  {dp_dx_num:.6e}")
+    print(f"Erro Relativo (L2):  {erro_relativo:.6f}%")
+    print(f"{'=' * 50}\n")

@@ -13,17 +13,19 @@ def _init_kernel(phi, f, psi, u_x, ny, nx, mode_m, amplitude, interface_width, x
     u_sq = u_inlet ** 2
 
     for y in prange(ny):
-        # Condição da interface perturbada analiticamente
         dist = x_center + amplitude * np.cos(2.0 * np.pi * mode_m * y / ny)
-
         for x in range(nx):
-            phi[y, x] = -np.tanh((x - dist) / (interface_width ))
+            if mode_m == 0:
+                phi[y, x] = 1.0  # Domínio unifásico puramente invasor
+            else:
+                phi[y, x] = -np.tanh((x - dist) / interface_width)
+
             psi[y, x] = Hx * (nx - x) + Hy * (ny - y)
             u_x[y, x] = u_inlet
 
             # Inicialização termodinâmica rigorosa: f = f_eq(rho=1.0, u=u_inlet)
             for i in range(9):
-                cu = CX[i] * u_inlet  # u_y é assumido 0 neste instante
+                cu = CX[i] * u_inlet
                 f[y, x, i] = W_LBM[i] * 1.0 * (1.0 + 3.0 * cu + 4.5 * (cu ** 2) - 1.5 * u_sq)
 
 
