@@ -202,3 +202,19 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
     log_path = os.path.join(base_dir, "relatorio_execucao.json")
     with open(log_path, 'w', encoding='utf-8') as f:
         json.dump(log_data, f, indent=4, ensure_ascii=False)
+
+
+def compute_interface_amplitude(phi):
+    """
+    Encontra a fronteira da fase invasora (phi = 0) para cada linha y.
+    Retorna a amplitude A(t) = (X_max - X_min) / 2.0
+    """
+    ny, nx = phi.shape
+    interface_x = np.zeros(ny)
+
+    # Encontra a coordenada x onde a interface muda de sinal (invasor para residente)
+    for y in range(ny):
+        # argmax retorna o primeiro índice onde a condição é verdadeira
+        interface_x[y] = np.argmax(phi[y, :] < 0.0)
+
+    return (np.max(interface_x) - np.min(interface_x)) / 2.0
