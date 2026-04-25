@@ -39,9 +39,22 @@ def run_simulation(params):
     # Agora o initialize_fields já retorna o campo 'rho' com o perfil linear dp/dx
     (f_a, f_b), (phi_a, phi_b), psi, rho, u_x, u_y, K_field, (Fx, Fy, mu_buffer) = initialize_fields(params)
 
+
+
     # Ponteiros para Double Buffering
     f_in, f_out = f_a, f_b
     phi_in, phi_out = phi_a, phi_b
+
+    # --- 2.5 Pré-convergência do potencial magnético (warm-up SOR) ---
+    # Garante que psi está convergido antes do primeiro passo, pois a
+    # condição inicial psi=0 só evolui ~15 células por chamada do solver.
+    if params["H0"] > 0.0:
+        chi_init = np.clip((phi_in + 1.0) * 0.5, 0.0, 1.0) * params["CHI_MAX"]
+        for _ in range(30):  # 30 × 15 = 450 varreduras (suficiente p/ NX=1500)
+            psi = solve_poisson_magnetic(
+                psi, chi_init, params["H0"],
+                params["H_ANGLE"], params["SOR_OMEGA"]
+            )
 
     max_iter = params["MAX_ITER"]
     snapshot_steps = params["SNAPSHOT_STEPS"]

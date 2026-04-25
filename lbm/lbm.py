@@ -13,15 +13,14 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
 
     # 1. Cálculo de Forças Externas
     for y in prange(ny):
+        yp = (y + 1) % ny
+        ym = (y - 1 + ny) % ny
         for x in prange(nx):
             if is_periodic:
-                yp = (y + 1) % ny
-                ym = (y - 1 + ny) % ny
                 xp = (x + 1) % nx
                 xm = (x - 1 + nx) % nx
             else:
-                if y == 0 or y == ny - 1 or x == 0 or x == nx - 1: continue
-                yp, ym = y + 1, y - 1
+                if x == 0 or x == nx - 1: continue
                 xp, xm = x + 1, x - 1
 
             # Forças Capilares (Cahn-Hilliard)

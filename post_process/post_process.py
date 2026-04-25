@@ -28,24 +28,47 @@ def setup_output_dir(id_caso):
 # =============================================================================
 # 2. EXPORTAÇÃO ESTRUTURADA (VTK - OTIMIZADA)
 # =============================================================================
-def export_fields_vtk(phi, psi, rho, u_x, u_y, t, base_dir):
+def export_fields_vtk(phi, psi, rho, u_x, u_y, t, base_dir, Hx_fundo=0.0, Hy_fundo=0.0):
+    """
+    Exporta os dados macroscópicos para VTK.
+    Reconstrói o Campo Magnético Total aplicando a superposição do campo de fundo
+    com o gradiente do potencial de distúrbio.
+    """
     ny, nx = phi.shape
     x = np.arange(0, nx + 1, dtype=np.float64)
     y = np.arange(0, ny + 1, dtype=np.float64)
     z = np.array([0.0, 1.0], dtype=np.float64)
 
+    # Reshape de campos escalares básicos
     phi_3d = phi.T.reshape((nx, ny, 1))
     rho_3d = rho.T.reshape((nx, ny, 1))
     psi_3d = psi.T.reshape((nx, ny, 1))
 
+    # Reshape de vetores de velocidade
     ux_3d = u_x.T.reshape((nx, ny, 1))
     uy_3d = u_y.T.reshape((nx, ny, 1))
     uz_3d = np.zeros_like(ux_3d)
 
-    hy, hx = np.gradient(-psi)
-    hx_3d = hx.T.reshape((nx, ny, 1))
-    hy_3d = hy.T.reshape((nx, ny, 1))
-    hz_3d = np.zeros_like(hx_3d)
+    # Cálculo dos gradientes de perturbação via diferenças finitas centrais
+    # np.gradient retorna (derivada_y, derivada_x) para matrizes 2D
+    dpsi_dy, dpsi_dx = np.gradient(psi)
+
+    # Vetores do Campo Magnético Induzido (Perturbação)
+    hx_induzido = -dpsi_dx
+    hy_induzido = -dpsi_dy
+
+    # Vetores do Campo Magnético Total (Fundo + Induzido)
+    hx_total = Hx_fundo + hx_induzido
+    hy_total = Hy_fundo + hy_induzido
+
+    # Reshape das matrizes magnéticas para o padrão 3D do VTK
+    hx_ind_3d = hx_induzido.T.reshape((nx, ny, 1))
+    hy_ind_3d = hy_induzido.T.reshape((nx, ny, 1))
+
+    hx_tot_3d = hx_total.T.reshape((nx, ny, 1))
+    hy_tot_3d = hy_total.T.reshape((nx, ny, 1))
+
+    hz_3d = np.zeros_like(hx_ind_3d)
 
     caminho_arquivo = os.path.join(base_dir, 'vtk', f"dados_macro_{t:05d}")
 
@@ -54,9 +77,10 @@ def export_fields_vtk(phi, psi, rho, u_x, u_y, t, base_dir):
         cellData={
             "fase_phi": phi_3d,
             "densidade_rho": rho_3d,
-            "potencial_psi": psi_3d,
+            "potencial_psi_disturbio": psi_3d,
             "velocidade": (ux_3d, uy_3d, uz_3d),
-            "campo_magnetico_H": (hx_3d, hy_3d, hz_3d)
+            "campo_magnetico_induzido": (hx_ind_3d, hy_ind_3d, hz_3d),
+            "campo_magnetico_TOTAL": (hx_tot_3d, hy_tot_3d, hz_3d)
         }
     )
 
@@ -118,11 +142,6 @@ def export_tip_position(phi, base_dir):
 # =============================================================================
 
 def export_simulation_log(params, mass_history, curv_history, exec_duration, base_dir):
-    """
-    Gera e exporta o relatório JSON de integridade e diagnósticos da simulação LBM.
-    Incorpora relaxação do limite de conservação de massa (5%) para regimes compressíveis de Darcy
-    e avaliação do Número de Reynolds no Poro (Re_K) para detecção do regime de Forchheimer.
-    """
     mass_t0 = mass_history[0]
     mass_tf = mass_history[-1]
 
@@ -138,8 +157,6 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
         status = "BEM SUCEDIDA"
         alertas = []
 
-        # O limite de alerta de massa é ampliado para 5.0% para absorver as flutuações acústicas
-        # naturais exigidas pela formação do gradiente de pressão no meio poroso.
         if abs(mass_var_pct) > 5.0:
             status = "ALERTA"
             alertas.append(
@@ -147,7 +164,6 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
                 "Verifique condições de contorno; vazamento de massa provável."
             )
 
-    # Análise Física da Interface e Cálculo do Regime de Poro
     nu_kinematic = (params["TAU_IN"] - 0.5) / 3.0
     re_k = (params["U_INLET"] * np.sqrt(params["K_0"])) / nu_kinematic
 
@@ -160,7 +176,6 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
             "Para manter a estrita linearidade, reduza U_INLET ou K_0."
         )
 
-    # Tratamento Morfológico Condicional (Multifásico vs Unifásico)
     if params.get("CH_SUBSTEPS", 0) > 0:
         curv_t0 = curv_history[0]
         curv_tf = curv_history[-1]
@@ -205,16 +220,10 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
 
 
 def compute_interface_amplitude(phi):
-    """
-    Encontra a fronteira da fase invasora (phi = 0) para cada linha y.
-    Retorna a amplitude A(t) = (X_max - X_min) / 2.0
-    """
     ny, nx = phi.shape
     interface_x = np.zeros(ny)
 
-    # Encontra a coordenada x onde a interface muda de sinal (invasor para residente)
     for y in range(ny):
-        # argmax retorna o primeiro índice onde a condição é verdadeira
         interface_x[y] = np.argmax(phi[y, :] < 0.0)
 
     return (np.max(interface_x) - np.min(interface_x)) / 2.0
