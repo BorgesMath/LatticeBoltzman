@@ -37,13 +37,16 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
             hx = Hx_fundo - 0.5 * (psi[y, xp] - psi[y, xm])
             hy = Hy_fundo - 0.5 * (psi[yp, x] - psi[ym, x])
 
-            # Derivadas de segunda ordem (gradiente de força magnética)
-            d2psi_dx2 = psi[y, xp] - 2.0 * psi[y, x] + psi[y, xm]
-            d2psi_dy2 = psi[yp, x] - 2.0 * psi[y, x] + psi[ym, x]
-            d2psi_dxy = 0.25 * (psi[yp, xp] - psi[yp, xm] - psi[ym, xp] + psi[ym, xm])
+            # Gradiente da Suscetibilidade Magnética na interface
+            dchi_dx = 0.5 * (chi[y, xp] - chi[y, xm])
+            dchi_dy = 0.5 * (chi[yp, x] - chi[ym, x])
 
-            Fx[y, x] += chi[y, x] * (hx * (-d2psi_dx2) + hy * (-d2psi_dxy))
-            Fy[y, x] += chi[y, x] * (hx * (-d2psi_dxy) + hy * (-d2psi_dy2))
+            # Quadrado do módulo do campo magnético total
+            H_sq = hx ** 2 + hy ** 2
+
+            # Força de corpo magnética real: Divergente do Tensor de Maxwell
+            Fx[y, x] += -0.5 * H_sq * dchi_dx
+            Fy[y, x] += -0.5 * H_sq * dchi_dy
 
     # 2. Colisão e Streaming
     nu_in = (tau_in - 0.5) / 3.0

@@ -19,6 +19,6 @@
     "H0": 0.08,
     "CHI_MAX": 0.8,
     "SOR_OMEGA": 1.5,
-    "H_ANGLE": 0.0
+    "H_ANGLE": 90.0
   }
   ]
