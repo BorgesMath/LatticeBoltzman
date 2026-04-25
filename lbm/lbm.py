@@ -8,7 +8,7 @@ CY = np.array([0, 0, 1, 0, -1, 1, 1, -1, -1], dtype=np.int32)
 
 @njit(parallel=True, cache=True)
 def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
-             tau_in, tau_out, u_inlet, beta, kappa, is_periodic):
+             tau_in, tau_out, u_inlet, beta, kappa, is_periodic, Hx_fundo, Hy_fundo):
     ny, nx, _ = f_in.shape
 
     # 1. Cálculo de Forças Externas
@@ -24,6 +24,7 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
                 yp, ym = y + 1, y - 1
                 xp, xm = x + 1, x - 1
 
+            # Forças Capilares (Cahn-Hilliard)
             dx_phi = 0.5 * (phi[y, xp] - phi[y, xm])
             dy_phi = 0.5 * (phi[yp, x] - phi[ym, x])
             lap_phi = (phi[y, xp] + phi[y, xm] + phi[yp, x] + phi[ym, x] - 4.0 * phi[y, x])
@@ -32,8 +33,11 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
             Fx[y, x] = mu_c * dx_phi
             Fy[y, x] = mu_c * dy_phi
 
-            hx = -0.5 * (psi[y, xp] - psi[y, xm])
-            hy = -0.5 * (psi[yp, x] - psi[ym, x])
+            # Reconstrução do Campo Total de Maxwell: H_total = H_fundo - grad(psi_tilde)
+            hx = Hx_fundo - 0.5 * (psi[y, xp] - psi[y, xm])
+            hy = Hy_fundo - 0.5 * (psi[yp, x] - psi[ym, x])
+
+            # Derivadas de segunda ordem (gradiente de força magnética)
             d2psi_dx2 = psi[y, xp] - 2.0 * psi[y, x] + psi[y, xm]
             d2psi_dy2 = psi[yp, x] - 2.0 * psi[y, x] + psi[ym, x]
             d2psi_dxy = 0.25 * (psi[yp, xp] - psi[yp, xm] - psi[ym, xp] + psi[ym, xm])
@@ -94,7 +98,7 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
                     if 0 <= be_x < nx:
                         f_out[be_y, be_x, i] = f_val
 
-    # 3. Condições de Fronteira Abertas (Suprimidas se Periódico)
+    # 3. Condições de Fronteira Abertas
     if not is_periodic:
         for y in prange(ny):
             rho_out = 1.0
@@ -103,9 +107,9 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
 
             f_out[y, nx - 1, 3] = f_out[y, nx - 1, 1] - (2.0 / 3.0) * rho_out * ux_out
             f_out[y, nx - 1, 6] = f_out[y, nx - 1, 8] - 0.5 * (f_out[y, nx - 1, 2] - f_out[y, nx - 1, 4]) - (
-                        1.0 / 6.0) * rho_out * ux_out
+                    1.0 / 6.0) * rho_out * ux_out
             f_out[y, nx - 1, 7] = f_out[y, nx - 1, 5] + 0.5 * (f_out[y, nx - 1, 2] - f_out[y, nx - 1, 4]) - (
-                        1.0 / 6.0) * rho_out * ux_out
+                    1.0 / 6.0) * rho_out * ux_out
 
             rho_in = (1.0 / (1.0 - u_inlet)) * (
                     f_out[y, 0, 0] + f_out[y, 0, 2] + f_out[y, 0, 4] +

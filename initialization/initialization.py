@@ -18,7 +18,7 @@ def _init_kernel(phi, f, psi, rho, u_x, ny, nx, mode_m, amplitude, interface_wid
 
         for x in range(nx):
             phi[y, x] = -np.tanh((x - dist) / interface_width)
-            psi[y, x] = Hx * (nx - x) + Hy * (ny - y)
+            psi[y, x] = 0.0  # Anulação para isolamento da perturbação
             u_x[y, x] = u_inlet
 
             # Injeção da pressão analítica pré-calculada

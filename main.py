@@ -12,7 +12,6 @@ from cahn_hilliard.cahn_hilliard import cahn_hilliard_substep
 from lbm.lbm import lbm_step
 from post_process import post_process
 
-
 def run_simulation(params):
     """
     Orquestra a simulação LBM-CH multifásica.
@@ -54,6 +53,12 @@ def run_simulation(params):
     amp_history = np.zeros(max_iter, dtype=np.float64)
     time_steps = np.arange(max_iter)
 
+    # --- Extração do Campo Magnético de Fundo ---
+    # Cálculo prévio das componentes macroscópicas invariantes no tempo para otimização
+    angle_rad = np.radians(params["H_ANGLE"])
+    Hx_fundo = params["H0"] * np.cos(angle_rad)
+    Hy_fundo = params["H0"] * np.sin(angle_rad)
+
     # --- 3. Ciclo de Integração Temporal ---
     for t in tqdm(range(max_iter), desc=f"Integrando: {params['id_caso']}"):
 
@@ -75,10 +80,11 @@ def run_simulation(params):
                 phi_in, phi_out = phi_out, phi_in
 
         # C. Hidrodinâmica e Forças (Lattice Boltzmann D2Q9)
+        # Inserção das componentes do campo de fundo na assinatura da função
         lbm_step(
             f_in, f_out, phi_in, psi, rho, u_x, u_y, chi_field, K_field, Fx, Fy,
             params["TAU_IN"], params["TAU_OUT"], params["U_INLET"],
-            params["BETA"], params["KAPPA"], is_periodic
+            params["BETA"], params["KAPPA"], is_periodic, Hx_fundo, Hy_fundo
         )
 
         # Swap de Buffers LBM
@@ -114,7 +120,6 @@ def run_simulation(params):
         post_process.export_tip_position(phi_in, base_dir)
 
     print(f"\nFinalizado: {params['id_caso']} | Tempo: {exec_duration:.2f}s\n")
-
 
 if __name__ == "__main__":
     try:
