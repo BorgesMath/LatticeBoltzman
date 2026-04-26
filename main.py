@@ -39,22 +39,9 @@ def run_simulation(params):
     # Agora o initialize_fields já retorna o campo 'rho' com o perfil linear dp/dx
     (f_a, f_b), (phi_a, phi_b), psi, rho, u_x, u_y, K_field, (Fx, Fy, mu_buffer) = initialize_fields(params)
 
-
-
     # Ponteiros para Double Buffering
     f_in, f_out = f_a, f_b
     phi_in, phi_out = phi_a, phi_b
-
-    # --- 2.5 Pré-convergência do potencial magnético (warm-up SOR) ---
-    # Garante que psi está convergido antes do primeiro passo, pois a
-    # condição inicial psi=0 só evolui ~15 células por chamada do solver.
-    if params["H0"] > 0.0:
-        chi_init = np.clip((phi_in + 1.0) * 0.5, 0.0, 1.0) * params["CHI_MAX"]
-        for _ in range(30):  # 30 × 15 = 450 varreduras (suficiente p/ NX=1500)
-            psi = solve_poisson_magnetic(
-                psi, chi_init, params["H0"],
-                params["H_ANGLE"], params["SOR_OMEGA"]
-            )
 
     max_iter = params["MAX_ITER"]
     snapshot_steps = params["SNAPSHOT_STEPS"]
@@ -71,6 +58,17 @@ def run_simulation(params):
     angle_rad = np.radians(params["H_ANGLE"])
     Hx_fundo = params["H0"] * np.cos(angle_rad)
     Hy_fundo = params["H0"] * np.sin(angle_rad)
+
+    # --- 2.5 Pré-convergência do potencial magnético (warm-up SOR) ---
+    # Garante que psi_tilde está convergido antes do primeiro passo:
+    # com psi=0 inicial, 15 varreduras só propagam ~15 células no domínio.
+    if params["H0"] > 0.0:
+        chi_init = np.clip((phi_in + 1.0) * 0.5, 0.0, 1.0) * params["CHI_MAX"]
+        for _ in range(30):  # 30 × 15 = 450 varreduras (suficiente p/ NX=1500)
+            psi = solve_poisson_magnetic(
+                psi, chi_init, params["H0"],
+                params["H_ANGLE"], params["SOR_OMEGA"]
+            )
 
     # --- 3. Ciclo de Integração Temporal ---
     for t in tqdm(range(max_iter), desc=f"Integrando: {params['id_caso']}"):
@@ -111,7 +109,8 @@ def run_simulation(params):
 
         # E. Exportação VTK (Paraview)
         if t in checkpoints:
-            post_process.export_fields_vtk(phi_in, psi, rho, u_x, u_y, t, base_dir)
+            post_process.export_fields_vtk(phi_in, psi, rho, u_x, u_y, t, base_dir,
+                                           Hx_fundo, Hy_fundo)
 
     exec_duration = time.time() - start_time
 
