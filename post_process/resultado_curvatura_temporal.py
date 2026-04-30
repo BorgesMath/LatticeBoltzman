@@ -75,6 +75,15 @@ def compute_mean_abs_curvature(phi):
     return float(np.mean(np.abs(kappa[mask])))
 
 
+def compute_interface_amplitude(phi):
+    """
+    Amplitude da perturbação da interface: A = (X_max - X_min) / 2
+    onde X é a posição x do primeiro ponto com φ < 0 em cada linha y.
+    """
+    interface_x = np.argmax(phi < 0.0, axis=1).astype(float)
+    return float((np.max(interface_x) - np.min(interface_x)) / 2.0)
+
+
 def extract_time_step(filename):
     """Extrai o passo t do padrão 'dados_macro_NNNNN.vtr'."""
     m = re.search(r'dados_macro_(\d+)\.vtr$', os.path.basename(filename))
@@ -109,39 +118,46 @@ def main():
 
     times = []
     curvs = []
+    amps = []
     for i, f in enumerate(vtr_files):
         t = extract_time_step(f)
         phi = load_phi_from_vtr(f)
         k = compute_mean_abs_curvature(phi)
+        a = compute_interface_amplitude(phi)
         times.append(t)
         curvs.append(k)
-        print(f"  [{i + 1:2d}/{len(vtr_files)}] t={t:6d}  |kappa_mean| = {k:.6e}")
+        amps.append(a)
+        print(f"  [{i + 1:2d}/{len(vtr_files)}] t={t:6d}  |kappa_mean| = {k:.6e}  amplitude = {a:.2f}")
 
     times = np.array(times)
     curvs = np.array(curvs)
+    amps = np.array(amps)
 
     # Identifica o caso pelo nome do diretório-pai (acima de /vtk)
     parent = os.path.basename(os.path.dirname(os.path.abspath(vtk_dir)))
     out_path = os.path.join(os.path.dirname(os.path.abspath(vtk_dir)),
                             "curvatura_temporal.png")
 
-    # ---------- Plot acadêmico ----------
-    fig, ax = plt.subplots(figsize=(7.0, 4.5))
+    # ---------- Plot acadêmico (curvatura + amplitude, subplots) ----------
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7.0, 7.0), sharex=True)
 
-    ax.plot(times, curvs, marker='o', markersize=5, color='#9b1d20',
-            markerfacecolor='white', markeredgecolor='#9b1d20',
-            markeredgewidth=1.4, label=r"$\overline{|\kappa|}(t)$")
-
-    ax.set_xlabel(r"Time step $t$ (lattice units)")
-    ax.set_ylabel(r"Mean absolute curvature  $\overline{|\kappa|}$")
-
-    # Eixo Y em escala log se a faixa dinâmica for grande (> duas décadas)
+    ax1.plot(times, curvs, marker='o', markersize=5, color='#9b1d20',
+             markerfacecolor='white', markeredgecolor='#9b1d20',
+             markeredgewidth=1.4, label=r"$\overline{|\kappa|}(t)$")
+    ax1.set_ylabel(r"Mean absolute curvature  $\overline{|\kappa|}$")
     pos = curvs[curvs > 0]
     if pos.size > 0 and (pos.max() / pos.min() > 100):
-        ax.set_yscale('log')
+        ax1.set_yscale('log')
+    ax1.legend(loc='best', frameon=True, fancybox=False, edgecolor='black')
+    ax1.tick_params(direction='in', top=True, right=True)
 
-    ax.legend(loc='best', frameon=True, fancybox=False, edgecolor='black')
-    ax.tick_params(direction='in', top=True, right=True)
+    ax2.plot(times, amps, marker='s', markersize=5, color='#1a5276',
+             markerfacecolor='white', markeredgecolor='#1a5276',
+             markeredgewidth=1.4, label=r"$A(t)$")
+    ax2.set_xlabel(r"Time step $t$ (lattice units)")
+    ax2.set_ylabel(r"Interface amplitude  $A$ (l.u.)")
+    ax2.legend(loc='best', frameon=True, fancybox=False, edgecolor='black')
+    ax2.tick_params(direction='in', top=True, right=True)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=300, bbox_inches='tight')
@@ -152,7 +168,7 @@ def main():
     # Salva também em .npz para reuso (comparação entre casos)
     npz_path = os.path.join(os.path.dirname(os.path.abspath(vtk_dir)),
                             "curvatura_temporal.npz")
-    np.savez(npz_path, t=times, kappa_mean_abs=curvs)
+    np.savez(npz_path, t=times, kappa_mean_abs=curvs, amplitude=amps)
     print(f"[OK] Dados salvos em : {npz_path}")
 
 

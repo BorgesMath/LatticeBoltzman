@@ -3,13 +3,8 @@ from numba import njit, prange
 
 
 @njit(parallel=True, cache=True)
-def solve_poisson_magnetic(psi_tilde, chi_field, h0, h_angle, sor_omega):
+def solve_poisson_magnetic(psi_tilde, chi_field, Hx_fundo, Hy_fundo, sor_omega):
     ny, nx = psi_tilde.shape
-    angle_rad = np.radians(h_angle)
-
-    # Decomposição do vetor do campo magnético exógeno
-    Hx_fundo = h0 * np.cos(angle_rad)
-    Hy_fundo = h0 * np.sin(angle_rad)
 
     # Iterações do Solver SOR para a PERTURBAÇÃO (Estritamente periódica em Y)
     for _ in range(15):

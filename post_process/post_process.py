@@ -78,24 +78,9 @@ def export_fields_vtk(phi, psi, rho, u_x, u_y, t, base_dir, Hx_fundo=0.0, Hy_fun
 
 
 # =============================================================================
-# 3. DIAGNÓSTICOS TOPOLÓGICOS E TEMPORAIS (MANTIDOS)
+# 3. DIAGNÓSTICOS TEMPORAIS
 # =============================================================================
-def compute_interface_curvature(phi):
-    dy, dx = np.gradient(phi)
-    d2y, dy_dx = np.gradient(dy)
-    dx_dy, d2x = np.gradient(dx)
-
-    num = (dx ** 2 * d2y) + (dy ** 2 * d2x) - (2.0 * dx * dy * dx_dy)
-    den = (dx ** 2 + dy ** 2 + 1e-8) ** 1.5
-    kappa = num / den
-
-    interface_mask = np.abs(phi) < 0.1
-    if np.any(interface_mask):
-        return np.mean(np.abs(kappa[interface_mask]))
-    return 0.0
-
-
-def export_time_series(mass_history, curv_history, time_steps, base_dir):
+def export_time_series(mass_history, time_steps, base_dir):
     plt.figure(figsize=(8, 4))
     plt.plot(time_steps, mass_history, color='blue', linewidth=1.5)
     plt.title("Conservação da Massa Total")
@@ -104,16 +89,6 @@ def export_time_series(mass_history, curv_history, time_steps, base_dir):
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.savefig(os.path.join(base_dir, 'series_temporais', "massa_total.png"), dpi=150)
-    plt.close()
-
-    plt.figure(figsize=(8, 4))
-    plt.plot(time_steps, curv_history, color='red', linewidth=1.5)
-    plt.title("Curvatura Média Absoluta da Interface")
-    plt.ylabel(r"$\bar{|\kappa|}$ interfacial")
-    plt.xlabel("Iterações (t)")
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    plt.savefig(os.path.join(base_dir, 'series_temporais', "curvatura.png"), dpi=150)
     plt.close()
 
 
@@ -133,11 +108,12 @@ def export_tip_position(phi, base_dir):
 # 4. CONSTRUCAO LOG
 # =============================================================================
 
-def export_simulation_log(params, mass_history, curv_history, exec_duration, base_dir):
+def export_simulation_log(params, mass_history, exec_duration, base_dir):
     """
     Gera e exporta o relatório JSON de integridade e diagnósticos da simulação LBM.
     Incorpora relaxação do limite de conservação de massa (5%) para regimes compressíveis de Darcy
     e avaliação do Número de Reynolds no Poro (Re_K) para detecção do regime de Forchheimer.
+    Análise morfológica (curvatura, amplitude, regime) delegada a resultado_curvatura_temporal.py.
     """
     mass_t0 = mass_history[0]
     mass_tf = mass_history[-1]
@@ -176,21 +152,21 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
             "Para manter a estrita linearidade, reduza U_INLET ou K_0."
         )
 
-    # Tratamento Morfológico Condicional (Multifásico vs Unifásico)
-    if params.get("CH_SUBSTEPS", 0) > 0:
-        curv_t0 = curv_history[0]
-        curv_tf = curv_history[-1]
-        growth_ratio = curv_tf / curv_t0 if curv_t0 != 0 else 0.0
+    # Grupos adimensionais
+    nu_out = (params["TAU_OUT"] - 0.5) / 3.0
+    sigma = params["SIGMA"]
+    ny = params["NY"]
+    nx = params["NX"]
 
-        if growth_ratio > 1.05:
-            regime = "Instável (Crescimento de perturbação / Fingering detectado)"
-        else:
-            regime = "Estável (Supressão magnética/viscosa ou interface plana)"
-    else:
-        curv_t0 = 0.0
-        curv_tf = 0.0
-        growth_ratio = 0.0
-        regime = "Escoamento Unifásico (Validação de Meio Poroso)"
+    ca = (nu_kinematic * params["U_INLET"]) / sigma if sigma > 0 else float("inf")
+    da = params["K_0"] / (ny ** 2)
+    re = (params["U_INLET"] * ny) / nu_kinematic
+    m_visc = nu_out / nu_kinematic
+    cn = params["INTERFACE_WIDTH"] / ny
+    ar = nx / ny
+    h0 = params.get("H0", 0.0)
+    chi_max = params.get("CHI_MAX", 0.0)
+    bo_mag = (chi_max * h0 ** 2 * ny) / sigma if (sigma > 0 and h0 > 0) else 0.0
 
     log_data = {
         "identificacao": {
@@ -200,17 +176,24 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
             "tempo_execucao_minutos": round(exec_duration / 60.0, 2)
         },
         "diagnostico_fisico": {
-            "regime_morfologico": regime,
-            "razao_crescimento_curvatura": float(growth_ratio) if not np.isnan(growth_ratio) else "NaN",
-            "curvatura_t0": float(curv_t0) if not np.isnan(curv_t0) else "NaN",
-            "curvatura_t_final": float(curv_tf) if not np.isnan(curv_tf) else "NaN",
-            "reynolds_poro_rek": float(round(re_k, 4))
+            "reynolds_poro_rek": float(round(re_k, 4)),
+            "nota_morfologica": "Curvatura e amplitude analisadas por resultado_curvatura_temporal.py"
         },
         "integridade_numerica": {
             "massa_total_t0": float(mass_t0) if not np.isnan(mass_t0) else "NaN",
             "massa_total_t_final": float(mass_tf) if not np.isnan(mass_tf) else "NaN",
             "erro_conservacao_massa_percentual": float(round(mass_var_pct, 6)) if not np.isnan(mass_var_pct) else "NaN",
             "alertas_identificados": alertas
+        },
+        "parametros_adimensionais": {
+            "Ca":     round(ca, 6),
+            "Da":     round(da, 6),
+            "Re":     round(re, 6),
+            "Re_K":   float(round(re_k, 6)),
+            "M_visc": round(m_visc, 6),
+            "Cn":     round(cn, 6),
+            "AR":     round(ar, 4),
+            "Bo_mag": round(bo_mag, 6)
         },
         "parametros_contorno": params
     }
@@ -220,17 +203,64 @@ def export_simulation_log(params, mass_history, curv_history, exec_duration, bas
         json.dump(log_data, f, indent=4, ensure_ascii=False)
 
 
-def compute_interface_amplitude(phi):
+# =============================================================================
+# 5. VALIDAÇÃO DE DARCY (escoamento unifásico, CH_SUBSTEPS=0, mode_m=0)
+# =============================================================================
+def validate_darcy_flow(rho, params, base_dir):
     """
-    Encontra a fronteira da fase invasora (phi = 0) para cada linha y.
-    Retorna a amplitude A(t) = (X_max - X_min) / 2.0
+    Compara o perfil de pressão simulado com a previsão analítica de Darcy:
+        dp/dx = -(nu / K) * U_inlet
+    Em LBM: p = rho / 3.  Plota perfil de pressão e gradiente, salva PNG e
+    imprime o erro relativo médio no terminal.
     """
-    ny, nx = phi.shape
-    interface_x = np.zeros(ny)
+    nu_in = (params["TAU_IN"] - 0.5) / 3.0
+    k0    = params["K_0"]
+    u_in  = params["U_INLET"]
+    nx    = rho.shape[1]
 
-    # Encontra a coordenada x onde a interface muda de sinal (invasor para residente)
-    for y in range(ny):
-        # argmax retorna o primeiro índice onde a condição é verdadeira
-        interface_x[y] = np.argmax(phi[y, :] < 0.0)
+    # Pressão (LBM): p = cs² × rho = rho / 3
+    p_mean = rho.mean(axis=0) / 3.0
+    x = np.arange(nx, dtype=np.float64)
 
-    return (np.max(interface_x) - np.min(interface_x)) / 2.0
+    # Gradiente numérico de pressão (central, borda por diferença simples)
+    dp_dx_sim = np.gradient(p_mean, x)
+
+    # Previsão analítica de Darcy (pressão cai da entrada para a saída)
+    dp_dx_theory = -(nu_in / k0) * u_in
+
+    # Erro relativo médio (ignora 5 células de contorno em cada extremidade)
+    interior = dp_dx_sim[5:-5]
+    err_pct = (np.mean(np.abs(interior - dp_dx_theory))
+               / (abs(dp_dx_theory) + 1e-12) * 100.0)
+
+    # Perfil teórico linear ancorado no outlet (x = nx-1, p = 1/3)
+    p_theory = 1.0 / 3.0 + dp_dx_theory * (x - (nx - 1))
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
+
+    ax1.plot(x, p_mean,   color='#1a5276', linewidth=1.5, label="Simulado")
+    ax1.plot(x, p_theory, color='#922b21', linewidth=1.2, linestyle='--',
+             label="Darcy analítico")
+    ax1.set_xlabel(r"$x$ (l.u.)")
+    ax1.set_ylabel(r"$p = \rho/3$ (l.u.)")
+    ax1.set_title("Perfil de Pressão")
+    ax1.legend(frameon=True, fancybox=False, edgecolor='black')
+    ax1.tick_params(direction='in', top=True, right=True)
+
+    ax2.plot(x[5:-5], dp_dx_sim[5:-5], color='#1a5276', linewidth=1.5,
+             label=r"$dp/dx$ simulado")
+    ax2.axhline(dp_dx_theory, color='#922b21', linestyle='--', linewidth=1.2,
+                label=r"$dp/dx$ teórico")
+    ax2.set_xlabel(r"$x$ (l.u.)")
+    ax2.set_ylabel(r"$dp/dx$ (l.u.)")
+    ax2.set_title(f"Gradiente de Pressão  (erro médio = {err_pct:.2f} %)")
+    ax2.legend(frameon=True, fancybox=False, edgecolor='black')
+    ax2.tick_params(direction='in', top=True, right=True)
+
+    fig.tight_layout()
+    out_path = os.path.join(base_dir, "validacao_darcy.png")
+    fig.savefig(out_path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
+    print(f"[Darcy] Erro relativo médio dp/dx: {err_pct:.3f}%")
+    print(f"[Darcy] Gráfico salvo em: {out_path}")

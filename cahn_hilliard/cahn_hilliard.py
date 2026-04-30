@@ -16,7 +16,7 @@ def cahn_hilliard_substep(phi_in, phi_out, mu, u_x, u_y, beta, kappa, dt_ch, m_m
     for y in prange(ny):
         yp = (y + 1) % ny
         ym = (y - 1 + ny) % ny
-        for x in prange(nx):
+        for x in range(nx):
             if is_periodic:
                 xp = (x + 1) % nx
                 xm = (x - 1 + nx) % nx
@@ -38,7 +38,7 @@ def cahn_hilliard_substep(phi_in, phi_out, mu, u_x, u_y, beta, kappa, dt_ch, m_m
     for y in prange(ny):
         yp = (y + 1) % ny
         ym = (y - 1 + ny) % ny
-        for x in prange(nx):
+        for x in range(nx):
             if is_periodic:
                 xp = (x + 1) % nx
                 xm = (x - 1 + nx) % nx

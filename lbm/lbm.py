@@ -15,7 +15,7 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
     for y in prange(ny):
         yp = (y + 1) % ny
         ym = (y - 1 + ny) % ny
-        for x in prange(nx):
+        for x in range(nx):
             if is_periodic:
                 xp = (x + 1) % nx
                 xm = (x - 1 + nx) % nx
@@ -52,7 +52,7 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
     nu_out = (tau_out - 0.5) / 3.0
 
     for y in prange(ny):
-        for x in prange(nx):
+        for x in range(nx):
             S_inv = (phi[y, x] + 1.0) * 0.5
             S_res = 1.0 - S_inv
             tau = tau_out + (tau_in - tau_out) * S_inv

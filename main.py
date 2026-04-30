@@ -1,7 +1,6 @@
 # main.py
 import json
 import time
-import os
 import numpy as np
 from tqdm import tqdm
 
@@ -49,8 +48,6 @@ def run_simulation(params):
 
     # Séries temporais para análise LSA e integridade
     mass_history = np.zeros(max_iter, dtype=np.float64)
-    curv_history = np.zeros(max_iter, dtype=np.float64)
-    amp_history = np.zeros(max_iter, dtype=np.float64)
     time_steps = np.arange(max_iter)
 
     # --- Extração do Campo Magnético de Fundo ---
@@ -66,8 +63,7 @@ def run_simulation(params):
         chi_init = np.clip((phi_in + 1.0) * 0.5, 0.0, 1.0) * params["CHI_MAX"]
         for _ in range(30):  # 30 × 15 = 450 varreduras (suficiente p/ NX=1500)
             psi = solve_poisson_magnetic(
-                psi, chi_init, params["H0"],
-                params["H_ANGLE"], params["SOR_OMEGA"]
+                psi, chi_init, Hx_fundo, Hy_fundo, params["SOR_OMEGA"]
             )
 
     # --- 3. Ciclo de Integração Temporal ---
@@ -76,7 +72,7 @@ def run_simulation(params):
         # A. Solução Magnética (Poisson/SOR)
         if params["H0"] > 0.0:
             chi_field = np.clip((phi_in + 1.0) * 0.5, 0.0, 1.0) * params["CHI_MAX"]
-            psi = solve_poisson_magnetic(psi, chi_field, params["H0"], params["H_ANGLE"], params["SOR_OMEGA"])
+            psi = solve_poisson_magnetic(psi, chi_field, Hx_fundo, Hy_fundo, params["SOR_OMEGA"])
         else:
             chi_field = np.zeros_like(phi_in)
 
@@ -103,9 +99,6 @@ def run_simulation(params):
 
         # D. Diagnósticos em tempo real
         mass_history[t] = np.sum(rho)
-        if params["CH_SUBSTEPS"] > 0:
-            curv_history[t] = post_process.compute_interface_curvature(phi_in)
-            amp_history[t] = post_process.compute_interface_amplitude(phi_in)
 
         # E. Exportação VTK (Paraview)
         if t in checkpoints:
@@ -115,13 +108,8 @@ def run_simulation(params):
     exec_duration = time.time() - start_time
 
     # --- 4. Finalização e Exportação de Logs ---
-    post_process.export_time_series(mass_history, curv_history, time_steps, base_dir)
-
-    # Salvar amplitude separadamente para o script valida_lsa.py
-    os.makedirs(os.path.join(base_dir, 'series_temporais'), exist_ok=True)
-    np.save(os.path.join(base_dir, 'series_temporais', 'amplitude.npy'), amp_history)
-
-    post_process.export_simulation_log(params, mass_history, curv_history, exec_duration, base_dir)
+    post_process.export_time_series(mass_history, time_steps, base_dir)
+    post_process.export_simulation_log(params, mass_history, exec_duration, base_dir)
 
     # Seleção de Rotina de Validação Final
     if params["CH_SUBSTEPS"] == 0 and params["mode_m"] == 0:
