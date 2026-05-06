@@ -67,29 +67,18 @@ plt.rcParams.update({
 # ═══════════════════════════════════════════════════════════════════
 def zeta_analitico(alpha, M, Bo, Ca_m, Lambda_m, H0n_sq, H0t_sq, Da, Ca):
     """
-    Taxa de crescimento adimensional ζ(α).
-
-    Parâmetros
-    ----------
-    alpha    : número de onda adimensional  α = k · L_ref
-    M        : razão de viscosidades  ν_deslocado / ν_invasor
-    Bo       : Bond gravitacional (0 se sem gravidade)
-    Ca_m     : Bond magnético  χ · H₀² · L_ref / σ
-    Lambda_m : contraste de suscetibilidade  χ / (2 + χ)
-    H0n_sq   : cos²(θ)   — componente normal normalizada ao quadrado
-    H0t_sq   : sin²(θ)   — componente tangencial normalizada ao quadrado
-    Da       : Darcy  K / L_ref²
-    Ca       : capilaridade  ν_in · U / σ
+    Taxa de crescimento adimensional ζ(α) — LSA Darcy padrão (Eq. 9).
     """
-    termo_viscoso      = alpha * ((M - 1.0) / (M + 1.0))
+    termo_viscoso = alpha * ((M - 1.0) / (M + 1.0))
     termo_gravitacional = Bo
-    termo_capilar      = -(alpha ** 2)
-    termo_magnetico    = Ca_m * Lambda_m * alpha * (H0n_sq - H0t_sq)
-    multiplicador      = (Da / (Ca * (1.0 + M))) * alpha
-    return termo_viscoso + multiplicador * (
-        termo_gravitacional + termo_capilar + termo_magnetico
-    )
+    termo_capilar = -(alpha ** 2)
+    termo_magnetico = Ca_m * Lambda_m * alpha * (H0n_sq - H0t_sq)
 
+    multiplicador = (Da / (Ca * (1.0 + M))) * alpha
+
+    return termo_viscoso + multiplicador * (
+            termo_gravitacional + termo_capilar + termo_magnetico
+    )
 
 # ═══════════════════════════════════════════════════════════════════
 # 2.  PARÂMETROS ADIMENSIONAIS  ←  relatorio_execucao.json
@@ -179,13 +168,31 @@ def _phi_de_vtr(vtr_path):
     return numpy_support.vtk_to_numpy(arr).reshape((ny, nx))
 
 
-def _amplitude(phi):
-    """A = (X_max − X_min) / 2  da iso-linha φ = 0."""
-    x_int = np.argmax(phi < 0.0, axis=1).astype(float)
-    valid = x_int > 0
+def _amplitude(phi, mode_m):
+    """
+    Calcula a amplitude do modo-m via projeção de Fourier da posição da interface phi=0.
+    Mais robusto que max-min para ondas com ruído ou modos mistos.
+    """
+    ny, nx = phi.shape
+
+    idx_right = np.argmax(phi < 0.0, axis=1)
+    valid = idx_right > 0
+
     if not np.any(valid):
         return 0.0
-    return float((np.max(x_int[valid]) - np.min(x_int[valid])) / 2.0)
+
+    idx_r = idx_right[valid]
+    idx_l = idx_r - 1
+    linhas = np.arange(ny)[valid]
+
+    phi_r = phi[linhas, idx_r]
+    phi_l = phi[linhas, idx_l]
+
+    x_exact = idx_l + phi_l / (phi_l - phi_r + 1e-15)
+
+    phase = np.exp(-2j * np.pi * mode_m * linhas / ny)
+    A_m = (2.0 / ny) * abs(np.sum(x_exact * phase))
+    return float(A_m)
 
 
 def _ts_de_nome(fname):
@@ -193,7 +200,7 @@ def _ts_de_nome(fname):
     return int(m.group(1)) if m else -1
 
 
-def carregar_amplitude(case_dir, max_snaps=80):
+def carregar_amplitude(case_dir, mode_m, max_snaps=80):
     """
     Retorna (t, A) arrays.  Tenta o .npz de cache primeiro; se ausente, lê VTKs.
     """
@@ -225,7 +232,7 @@ def carregar_amplitude(case_dir, max_snaps=80):
     for i, fpath in enumerate(vtrs):
         ts  = _ts_de_nome(fpath)
         phi = _phi_de_vtr(fpath)
-        A   = _amplitude(phi)
+        A   = _amplitude(phi, mode_m)
         times.append(ts); amps.append(A)
         print(f"  [{i+1:3d}/{len(vtrs)}]  t={ts:6d}   A = {A:.3f} l.u.")
 
@@ -409,7 +416,7 @@ def main():
     params = extrair_parametros(case_dir)
 
     print(f"\nCarregando série temporal de amplitude...")
-    t, A = carregar_amplitude(case_dir)
+    t, A = carregar_amplitude(case_dir, params['mode_m'])
 
     print(f"\nAjustando exponencial no regime linear...")
     s_num, A0_num, t_janela, A_janela = ajuste_exponencial(t, A, args.t0, args.t1)

@@ -58,8 +58,8 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
             tau = tau_out + (tau_in - tau_out) * S_inv
             omega = 1.0 / tau
 
-            kr_inv = max(S_inv ** 2, 1e-6)
-            kr_res = max(S_res ** 2, 1e-6)
+            kr_inv = max(S_inv, 1e-6)
+            kr_res = max(S_res, 1e-6)
             lambda_total = (kr_inv / nu_in) + (kr_res / nu_out)
             sigma_drag = 1.0 / (K_field[y, x] * lambda_total)
 
