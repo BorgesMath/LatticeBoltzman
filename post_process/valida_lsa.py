@@ -119,6 +119,20 @@ def extrair_parametros(case_dir):
             "(perturbação interfacial periódica)."
         )
 
+    # ── Avisos de qualidade de simulação ─────────────────────────
+    int_width = p.get("INTERFACE_WIDTH", None)
+    amplitude = p.get("amplitude", None)
+    if int_width is not None and int_width < 3:
+        print(f"[AVISO] INTERFACE_WIDTH = {int_width} < 3: viola o critério de Nyquist "
+              "para gradientes no reticulado D2Q9. Correntes espúrias severas esperadas.")
+    if int_width is not None and amplitude is not None:
+        kxi = 2.0 * np.pi * mode_m * int_width / ny
+        if amplitude >= int_width:
+            print(f"[AVISO] amplitude ({amplitude}) ≥ W ({int_width}): perturbação inicial "
+                  "comparável à espessura difusa. Para LSA pura use amplitude ≪ W (≈ W/5).")
+        print(f"[info]  kξ = 2π·m·W/NY = {kxi:.4f}  "
+              f"(ideal < 0.01 para < 5 % de erro de fase-field)")
+
     # ── Grupos adimensionais ──────────────────────────────────────
     L_ref = ny                             # comprimento de referência = NY
 
@@ -246,12 +260,12 @@ def ajuste_exponencial(t, A, t0_user=None, t1_user=None):
     """
     Regressão linear em log-espaço na janela de regime linear.
 
-    Se t0_user / t1_user são None, usa [5%, 45%] do intervalo total.
+    Se t0_user / t1_user são None, usa [30%, 75%] do intervalo total.
     Retorna (s_fit, A0_fit, t_janela, A_janela).
     """
     t_span = t[-1] - t[0]
-    t0 = t0_user if t0_user is not None else t[0] + 0.05 * t_span
-    t1 = t1_user if t1_user is not None else t[0] + 0.45 * t_span
+    t0 = t0_user if t0_user is not None else t[0] + 0.30 * t_span
+    t1 = t1_user if t1_user is not None else t[0] + 0.75 * t_span
 
     mask = (t >= t0) & (t <= t1) & (A > 0)
     if mask.sum() < 3:

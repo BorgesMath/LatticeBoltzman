@@ -55,7 +55,8 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
         for x in range(nx):
             S_inv = (phi[y, x] + 1.0) * 0.5
             S_res = 1.0 - S_inv
-            tau = tau_out + (tau_in - tau_out) * S_inv
+            inv_nu_eff = S_inv / nu_in + S_res / nu_out
+            tau = 3.0 / inv_nu_eff + 0.5
             omega = 1.0 / tau
 
             kr_inv = max(S_inv, 1e-6)
