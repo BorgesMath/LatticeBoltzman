@@ -214,6 +214,61 @@ def _ts_de_nome(fname):
     return int(m.group(1)) if m else -1
 
 
+def _s_local(t, A, k=None):
+    """
+    Taxa de crescimento instantânea s_local(t) = d ln A / dt
+    via regressão linear local em janela ±k pontos. Retorna NaN
+    nas bordas onde a janela não cabe.
+    """
+    if k is None:
+        k = max(3, len(t) // 16)
+    s_loc = np.full(len(t), np.nan)
+    for i in range(k, len(t) - k):
+        tt = t[i - k:i + k + 1]
+        aa = A[i - k:i + k + 1]
+        if np.all(aa > 0):
+            c = np.polyfit(tt, np.log(aa), 1)
+            s_loc[i] = c[0]
+    return s_loc, k
+
+
+def _detecta_plateau(t, A, tol_init=0.04, min_pontos=6):
+    """
+    Localiza a janela contígua centrada no máximo de s_local onde
+    |s_local − s_peak| / s_peak ≤ tol. Relaxa tol em escada
+    (4 → 6 → 9 → 13 → 20 %) até atingir min_pontos.
+
+    O min_pontos=6 garante regressão polinomial estável na janela
+    (evita over-fit em platôs estreitos).
+
+    Retorna (t0, t1, s_loc, s_peak, tol_usada). Se s_local não puder
+    ser computado retorna (None, None, s_loc, NaN, NaN).
+    """
+    s_loc, _ = _s_local(t, A)
+    valid = ~np.isnan(s_loc) & (s_loc > 0)
+    if valid.sum() < min_pontos:
+        return None, None, s_loc, float('nan'), float('nan')
+
+    idx_valid = np.where(valid)[0]
+    i_peak = idx_valid[np.argmax(s_loc[idx_valid])]
+    s_peak = float(s_loc[i_peak])
+
+    tol_final = tol_init
+    i_left = i_right = i_peak
+    for tol in (tol_init, 0.06, 0.09, 0.13, 0.20):
+        threshold = s_peak * (1.0 - tol)
+        i_left, i_right = i_peak, i_peak
+        while i_left > 0 and valid[i_left - 1] and s_loc[i_left - 1] >= threshold:
+            i_left -= 1
+        while i_right < len(t) - 1 and valid[i_right + 1] and s_loc[i_right + 1] >= threshold:
+            i_right += 1
+        tol_final = tol
+        if (i_right - i_left + 1) >= min_pontos:
+            return float(t[i_left]), float(t[i_right]), s_loc, s_peak, tol
+
+    return float(t[i_left]), float(t[i_right]), s_loc, s_peak, tol_final
+
+
 def carregar_amplitude(case_dir, mode_m, max_snaps=80):
     """
     Retorna (t, A) arrays.  Tenta o .npz de cache primeiro; se ausente, lê VTKs.
@@ -256,16 +311,43 @@ def carregar_amplitude(case_dir, mode_m, max_snaps=80):
 # ═══════════════════════════════════════════════════════════════════
 # 4.  AJUSTE EXPONENCIAL  A(t) = A₀ · exp(s · t)
 # ═══════════════════════════════════════════════════════════════════
-def ajuste_exponencial(t, A, t0_user=None, t1_user=None):
+def ajuste_exponencial(t, A, t0_user=None, t1_user=None, auto=True):
     """
     Regressão linear em log-espaço na janela de regime linear.
 
-    Se t0_user / t1_user são None, usa [30%, 75%] do intervalo total.
-    Retorna (s_fit, A0_fit, t_janela, A_janela).
+    • Se t0_user e t1_user forem ambos None e auto=True (padrão), detecta
+      automaticamente a janela do platô de s_local(t) via _detecta_plateau().
+    • Caso contrário, usa a janela manual (com fallback 30 %–75 % se um
+      dos limites for None).
+
+    Retorna (s_fit, A0_fit, t_janela, A_janela, info), onde
+    info = {'s_local', 's_local_max', 'auto', 'tol_usada', 't0', 't1'}.
     """
-    t_span = t[-1] - t[0]
-    t0 = t0_user if t0_user is not None else t[0] + 0.30 * t_span
-    t1 = t1_user if t1_user is not None else t[0] + 0.75 * t_span
+    info = {}
+
+    if t0_user is None and t1_user is None and auto:
+        t0_a, t1_a, s_loc, s_peak, tol = _detecta_plateau(t, A)
+        if t0_a is not None:
+            print(f"[auto] Platô de s_local em t ∈ [{int(t0_a)}, {int(t1_a)}]  "
+                  f"(s_peak = {s_peak:.4e}, tol = {tol * 100:.0f} %)")
+            t0, t1 = t0_a, t1_a
+            info = dict(s_local=s_loc, s_local_max=s_peak,
+                        auto=True, tol_usada=tol, t0=t0, t1=t1)
+        else:
+            print("[aviso] s_local não detectável — caindo na janela default 30 %–75 %.")
+            t_span = t[-1] - t[0]
+            t0 = t[0] + 0.30 * t_span
+            t1 = t[0] + 0.75 * t_span
+            info = dict(s_local=s_loc, s_local_max=float('nan'),
+                        auto=False, tol_usada=float('nan'), t0=t0, t1=t1)
+    else:
+        t_span = t[-1] - t[0]
+        t0 = t0_user if t0_user is not None else t[0] + 0.30 * t_span
+        t1 = t1_user if t1_user is not None else t[0] + 0.75 * t_span
+        s_loc, _ = _s_local(t, A)
+        s_peak = float(np.nanmax(s_loc)) if not np.all(np.isnan(s_loc)) else float('nan')
+        info = dict(s_local=s_loc, s_local_max=s_peak,
+                    auto=False, tol_usada=float('nan'), t0=t0, t1=t1)
 
     mask = (t >= t0) & (t <= t1) & (A > 0)
     if mask.sum() < 3:
@@ -276,13 +358,25 @@ def ajuste_exponencial(t, A, t0_user=None, t1_user=None):
 
     t_w, A_w = t[mask], A[mask]
     coeffs = np.polyfit(t_w, np.log(A_w), 1)
-    return float(coeffs[0]), float(np.exp(coeffs[1])), t_w, A_w
+    s_polyfit = float(coeffs[0])
+
+    # Mediana de s_local dentro da janela — estimador robusto paralelo.
+    s_loc_arr = info.get('s_local', None)
+    if s_loc_arr is not None:
+        s_loc_jan = s_loc_arr[mask]
+        s_loc_jan = s_loc_jan[~np.isnan(s_loc_jan)]
+        info['s_local_median'] = float(np.median(s_loc_jan)) if s_loc_jan.size else float('nan')
+    else:
+        info['s_local_median'] = float('nan')
+    info['s_polyfit'] = s_polyfit
+
+    return s_polyfit, float(np.exp(coeffs[1])), t_w, A_w, info
 
 
 # ═══════════════════════════════════════════════════════════════════
 # 5.  RELATÓRIO NO TERMINAL
 # ═══════════════════════════════════════════════════════════════════
-def _relatorio(params, s_num, s_ana):
+def _relatorio(params, s_num, s_ana, info=None):
     zeta_num = s_num * params['L_ref'] / params['U_ref']
     zeta_ana = zeta_analitico(
         params['alpha_sim'],
@@ -305,6 +399,21 @@ def _relatorio(params, s_num, s_ana):
     print(f"   H0n² (normal)           = {params['H0n_sq']:.4f}")
     print(f"   H0t² (tangencial)       = {params['H0t_sq']:.4f}")
     print(sep)
+    if info is not None:
+        modo = "AUTOMÁTICA (platô s_local)" if info.get('auto') else "MANUAL"
+        print(f"   Janela de ajuste          : {modo}")
+        print(f"     t ∈ [{int(info['t0']):d}, {int(info['t1']):d}]")
+        if info.get('auto') and not np.isnan(info.get('tol_usada', float('nan'))):
+            print(f"     tolerância utilizada     = {info['tol_usada'] * 100:.0f} %")
+        if not np.isnan(info.get('s_local_max', float('nan'))):
+            s_peak = info['s_local_max']
+            err_peak = abs(s_peak - s_ana) / (abs(s_ana) + 1e-30) * 100.0
+            print(f"     s_local máx (smoothed)   = {s_peak:+.6e}  ({err_peak:.2f} %)")
+        if not np.isnan(info.get('s_local_median', float('nan'))):
+            s_med = info['s_local_median']
+            err_med = abs(s_med - s_ana) / (abs(s_ana) + 1e-30) * 100.0
+            print(f"     s_local mediana (janela) = {s_med:+.6e}  ({err_med:.2f} %)")
+        print(sep)
     print(f"   Taxa dimensional  [1/timestep]:")
     print(f"     Numérica  (ajuste)   s_num = {s_num:+.6e}")
     print(f"     Analítica (Eq. 9)   s_ana = {s_ana:+.6e}")
@@ -320,7 +429,7 @@ def _relatorio(params, s_num, s_ana):
 # ═══════════════════════════════════════════════════════════════════
 # 6.  FIGURA
 # ═══════════════════════════════════════════════════════════════════
-def plotar(t, A, s_num, A0_num, s_ana, params, t_janela, case_dir):
+def plotar(t, A, s_num, A0_num, s_ana, params, t_janela, case_dir, info=None):
     zeta_num = s_num * params['L_ref'] / params['U_ref']
     zeta_ana = zeta_analitico(
         params['alpha_sim'],
@@ -416,6 +525,8 @@ def main():
                         help="Início da janela de ajuste exponencial (timestep).")
     parser.add_argument("--t1", type=float, default=None,
                         help="Fim    da janela de ajuste exponencial (timestep).")
+    parser.add_argument("--no-auto", action="store_true",
+                        help="Desativa a detecção automática do platô (volta ao padrão 30 %–75 %).")
     args = parser.parse_args()
 
     case_dir = args.case_dir
@@ -433,7 +544,9 @@ def main():
     t, A = carregar_amplitude(case_dir, params['mode_m'])
 
     print(f"\nAjustando exponencial no regime linear...")
-    s_num, A0_num, t_janela, A_janela = ajuste_exponencial(t, A, args.t0, args.t1)
+    s_num, A0_num, t_janela, A_janela, info = ajuste_exponencial(
+        t, A, args.t0, args.t1, auto=not args.no_auto
+    )
 
     # Taxa analítica dimensional  [1/timestep]
     zeta_ana = zeta_analitico(
@@ -443,8 +556,8 @@ def main():
     )
     s_ana = zeta_ana * params['U_ref'] / params['L_ref']
 
-    _relatorio(params, s_num, s_ana)
-    plotar(t, A, s_num, A0_num, s_ana, params, t_janela, case_dir)
+    _relatorio(params, s_num, s_ana, info)
+    plotar(t, A, s_num, A0_num, s_ana, params, t_janela, case_dir, info)
 
 
 if __name__ == "__main__":

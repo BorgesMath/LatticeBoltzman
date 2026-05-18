@@ -91,7 +91,8 @@ def run_simulation(params):
         lbm_step(
             f_in, f_out, phi_in, psi, rho, u_x, u_y, chi_field, K_field, Fx, Fy,
             params["TAU_IN"], params["TAU_OUT"], params["U_INLET"],
-            params["BETA"], params["KAPPA"], is_periodic, Hx_fundo, Hy_fundo
+            params["BETA"], params["KAPPA"], is_periodic, Hx_fundo, Hy_fundo,
+            params.get("VISC_LINEAR", False)
         )
 
         # Swap de Buffers LBM

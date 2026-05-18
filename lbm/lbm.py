@@ -8,7 +8,8 @@ CY = np.array([0, 0, 1, 0, -1, 1, 1, -1, -1], dtype=np.int32)
 
 @njit(parallel=True, cache=True)
 def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
-             tau_in, tau_out, u_inlet, beta, kappa, is_periodic, Hx_fundo, Hy_fundo):
+             tau_in, tau_out, u_inlet, beta, kappa, is_periodic, Hx_fundo, Hy_fundo,
+             visc_linear):
     ny, nx, _ = f_in.shape
 
     # 1. Cálculo de Forças Externas
@@ -55,8 +56,12 @@ def lbm_step(f_in, f_out, phi, psi, rho, u_x, u_y, chi, K_field, Fx, Fy,
         for x in range(nx):
             S_inv = (phi[y, x] + 1.0) * 0.5
             S_res = 1.0 - S_inv
-            inv_nu_eff = S_inv / nu_in + S_res / nu_out
-            tau = 3.0 / inv_nu_eff + 0.5
+            if visc_linear:
+                nu_eff = S_inv * nu_in + S_res * nu_out
+                tau = 3.0 * nu_eff + 0.5
+            else:
+                inv_nu_eff = S_inv / nu_in + S_res / nu_out
+                tau = 3.0 / inv_nu_eff + 0.5
             omega = 1.0 / tau
 
             kr_inv = max(S_inv, 1e-6)
