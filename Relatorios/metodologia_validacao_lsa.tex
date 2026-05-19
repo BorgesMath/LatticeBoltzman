@@ -1,0 +1,503 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{siunitx}
+\usepackage{xcolor}
+
+\geometry{margin=2.5cm}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue}
+
+\title{Metodologia: Validação da Instabilidade de Saffman--Taylor \\
+       em Meio Poroso via Lattice Boltzmann}
+\author{Matheus Borges Sampaio}
+\date{\today}
+
+\newcommand{\Da}{\mathrm{Da}}
+\newcommand{\Ca}{\mathrm{Ca}}
+\newcommand{\Bo}{\mathrm{Bo}}
+\newcommand{\Cam}{\mathrm{Ca}_m}
+\newcommand{\Lref}{L_{\mathrm{ref}}}
+\newcommand{\Uref}{U_{\mathrm{ref}}}
+\newcommand{\Reff}{\mathrm{Re}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Este documento descreve a metodologia adotada para validar a relação de
+dispersão linear (\textit{Linear Stability Analysis}, LSA) da instabilidade
+de Saffman--Taylor em meio poroso utilizando um simulador baseado em
+\textit{Lattice Boltzmann Method} (LBM) acoplado a um modelo de interface
+difusa de Cahn--Hilliard. São detalhados (i) o esquema numérico LBM-D2Q9 com
+forçamento de Guo, (ii) o modelo de fase, (iii) a extração das amplitudes
+interfaciais e da taxa de crescimento exponencial, e (iv) a comparação com a
+solução analítica de Darcy. Apresenta-se também a métrica de erro relativo
+e três estimadores complementares da taxa de crescimento.
+\end{abstract}
+
+% ────────────────────────────────────────────────────────────────────
+\section{Visão geral do procedimento}
+% ────────────────────────────────────────────────────────────────────
+
+A validação consiste em três etapas:
+
+\begin{enumerate}
+    \item \textbf{Simulação numérica:} um deslocamento bifásico em meio
+    poroso é inicializado com uma interface perturbada por um modo de
+    Fourier $m$ de amplitude $A_0$. O sistema é integrado pelo solver
+    LBM--Cahn--Hilliard até $t = T_{\max}$.
+
+    \item \textbf{Extração da taxa numérica $s_{\mathrm{num}}$:} a amplitude
+    interfacial $A(t)$ é projetada sobre o modo $m$ via transformada de
+    Fourier e ajustada exponencialmente na janela de regime linear,
+    fornecendo $A(t) \approx A_0\,e^{s_{\mathrm{num}}\,t}$.
+
+    \item \textbf{Comparação com $s_{\mathrm{ana}}$:} a taxa analítica é
+    calculada a partir da relação de dispersão adimensional (Eq.\ \ref{eq:zeta}),
+    convertida para unidades de passo de tempo da rede, e o erro relativo
+    é definido por $\varepsilon = |s_{\mathrm{num}} - s_{\mathrm{ana}}| /
+    |s_{\mathrm{ana}}|$.
+\end{enumerate}
+
+% ────────────────────────────────────────────────────────────────────
+\section{Modelo LBM--D2Q9 com forçamento de Guo}
+% ────────────────────────────────────────────────────────────────────
+
+\subsection{Equação de evolução}
+
+A dinâmica hidrodinâmica é resolvida em um reticulado bidimensional D2Q9
+(9 velocidades) sob o operador de colisão BGK com tempo de relaxação único.
+Para cada nó $\mathbf{x}$ e velocidade $\mathbf{c}_i$ ($i=0,\ldots,8$):
+\begin{equation}
+    f_i(\mathbf{x}+\mathbf{c}_i,\,t+1) = f_i(\mathbf{x},t)
+    - \frac{1}{\tau}\!\left[f_i - f_i^{\mathrm{eq}}\right]
+    + S_i,
+    \label{eq:lbm}
+\end{equation}
+onde $f_i^{\mathrm{eq}}$ é a distribuição de equilíbrio
+\begin{equation}
+    f_i^{\mathrm{eq}} = w_i \rho \left[ 1 + 3(\mathbf{c}_i\!\cdot\!\mathbf{u})
+    + \tfrac{9}{2}(\mathbf{c}_i\!\cdot\!\mathbf{u})^2
+    - \tfrac{3}{2}|\mathbf{u}|^2 \right],
+\end{equation}
+e $S_i$ é o termo de forçamento de Guo, que recupera a equação de
+Navier--Stokes com força de corpo até segunda ordem:
+\begin{equation}
+    S_i = w_i\!\left(1 - \tfrac{1}{2\tau}\right)
+    \!\left[ 3(\mathbf{c}_i - \mathbf{u})\!\cdot\!\mathbf{F}_{\mathrm{tot}}
+    + 9(\mathbf{c}_i\!\cdot\!\mathbf{u})(\mathbf{c}_i\!\cdot\!\mathbf{F}_{\mathrm{tot}}) \right].
+    \label{eq:guo}
+\end{equation}
+
+\subsection{Viscosidade efetiva e razão $M$}
+
+O reticulado é monocomponente em $f_i$; as duas fases são distinguidas pelo
+campo escalar de fase $\phi(\mathbf{x},t)\in[-1,+1]$, com $\phi=+1$ no
+fluido invasor (fase 1) e $\phi=-1$ no fluido deslocado (fase 2). A
+viscosidade cinemática local $\nu_{\mathrm{eff}}$ é obtida por mistura
+harmônica entre as viscosidades de cada fase:
+\begin{equation}
+    \frac{1}{\nu_{\mathrm{eff}}} = \frac{S}{\nu_{\mathrm{in}}} + \frac{1-S}{\nu_{\mathrm{out}}},
+    \qquad S = \tfrac{1}{2}(\phi+1),
+    \label{eq:nu_harm}
+\end{equation}
+com $\nu_{\mathrm{in}} = (\tau_{\mathrm{in}}-1/2)/3$ e analogamente para
+$\nu_{\mathrm{out}}$. A razão de viscosidades $M=\nu_{\mathrm{out}}/\nu_{\mathrm{in}}$
+é o parâmetro adimensional dominante da instabilidade. Um modo alternativo
+\textit{linear} ($\nu_{\mathrm{eff}} = S\,\nu_{\mathrm{in}} + (1-S)\,\nu_{\mathrm{out}}$)
+foi implementado como controle (parâmetro \texttt{VISC\_LINEAR}).
+
+\subsection{Termo de Brinkman/Darcy}
+
+A presença do meio poroso é modelada por uma força volumétrica de
+arrasto tipo Darcy:
+\begin{equation}
+    \mathbf{F}_{\mathrm{Darcy}} = -\sigma_d\,\rho\,\mathbf{u},
+    \qquad
+    \sigma_d = \frac{1}{K(\mathbf{x})}\!\left( \frac{S}{\nu_{\mathrm{in}}} + \frac{1-S}{\nu_{\mathrm{out}}} \right)^{-1},
+\end{equation}
+onde $K(\mathbf{x})$ é a permeabilidade absoluta (constante $K_0$ no domínio
+homogêneo aqui empregado). A força total que aparece em
+(\ref{eq:guo}) é
+\begin{equation}
+    \mathbf{F}_{\mathrm{tot}} = \mathbf{F}_{\mathrm{cap}}
+    + \mathbf{F}_{\mathrm{mag}}
+    + \mathbf{F}_{\mathrm{Darcy}}.
+\end{equation}
+A velocidade física é recuperada com correção implícita do arrasto:
+$\mathbf{u} = \mathbf{u}^\star / (1 + \tfrac{1}{2}\sigma_d)$, com
+$\mathbf{u}^\star = (\sum_i f_i \mathbf{c}_i + \tfrac{1}{2}\mathbf{F})/\rho$.
+
+% ────────────────────────────────────────────────────────────────────
+\section{Modelo de interface: Cahn--Hilliard}
+% ────────────────────────────────────────────────────────────────────
+
+\subsection{Energia livre e potencial químico}
+
+A interface difusa é governada pelo modelo Cahn--Hilliard com energia
+livre dupla-poço:
+\begin{equation}
+    \mathcal{F}[\phi] = \int \left[ \beta\,(\phi^2-1)^2
+    + \tfrac{\kappa}{2}|\nabla\phi|^2 \right] d\mathbf{x},
+\end{equation}
+cujo potencial químico é
+\begin{equation}
+    \mu_\phi = \frac{\delta\mathcal{F}}{\delta\phi}
+    = 4\beta\,\phi(\phi^2-1) - \kappa\,\nabla^2\phi.
+    \label{eq:mu}
+\end{equation}
+
+Para o perfil em equilíbrio $\phi_{\mathrm{eq}}(x) = \tanh(x/W)$, os
+parâmetros $\beta$ e $\kappa$ são fixados em função da tensão superficial
+$\sigma$ e da espessura nominal $W$:
+\begin{equation}
+    \beta = \frac{3\sigma}{8W}, \qquad
+    \kappa = \frac{3\sigma W}{4}.
+    \label{eq:beta_kappa}
+\end{equation}
+Essa parametrização garante $\sigma = \int_{-\infty}^{\infty}\kappa(\partial_x\phi)^2\,dx$
+e foi verificada por testes de Young--Laplace independentes.
+
+\subsection{Evolução temporal e \textit{substepping}}
+
+A equação de Cahn--Hilliard advectiva é
+\begin{equation}
+    \frac{\partial\phi}{\partial t} + \mathbf{u}\!\cdot\!\nabla\phi
+    = M_\phi\,\nabla^2\mu_\phi,
+    \label{eq:CH}
+\end{equation}
+integrada com Euler explícito e operadores de diferenças finitas centradas
+de segunda ordem. Devido ao termo $\nabla^4\phi$ contido em $\nabla^2\mu_\phi$,
+o passo estável é proporcional a $\Delta x^4$. Para evitar uma redução
+agressiva do passo LBM ($\Delta t_{\mathrm{LBM}} = 1$), introduz-se um
+\textit{substepping} interno de $N_{\mathrm{sub}} =$ \texttt{CH\_SUBSTEPS}
+iterações com $\Delta t_{\mathrm{CH}} = 1/N_{\mathrm{sub}}$:
+\begin{equation}
+    \phi^{n+1/N_{\mathrm{sub}}} = \phi^n
+    + \Delta t_{\mathrm{CH}}
+    \left[ M_\phi\,\nabla^2\mu_\phi^n - \mathbf{u}^n\!\cdot\!\nabla\phi^n \right].
+\end{equation}
+Valores típicos: $M_\phi = 10^{-2}$ a $10^{-3}$,
+$N_{\mathrm{sub}} = 60$ a $600$.
+
+\subsection{Força capilar}
+
+A força capilar sobre o reticulado LBM é obtida via formulação
+potencial--gradiente:
+\begin{equation}
+    \mathbf{F}_{\mathrm{cap}} = \mu_\phi\,\nabla\phi,
+\end{equation}
+que recupera o tensor de tensão de Korteweg
+$T_{ij} = -\kappa\,\partial_i\phi\,\partial_j\phi$ no limite contínuo e
+gera o salto de pressão correto na interface.
+
+% ────────────────────────────────────────────────────────────────────
+\section{Inicialização e condições de contorno}
+% ────────────────────────────────────────────────────────────────────
+
+\subsection{Geometria do domínio e perturbação inicial}
+
+O domínio retangular tem dimensões $N_X \times N_Y$ em unidades de rede
+(\textit{lattice units}, l.u.). A interface é inicializada como um perfil
+$\tanh$ com posição $x_{\mathrm{int}}(y)$ perturbada por um único modo de
+Fourier:
+\begin{equation}
+    x_{\mathrm{int}}(y) = x_c + A_0\,\cos\!\left(\frac{2\pi m y}{N_Y}\right),
+    \quad
+    \phi_0(x,y) = -\tanh\!\left( \frac{x - x_{\mathrm{int}}(y)}{W} \right),
+    \label{eq:phi0}
+\end{equation}
+onde $m$ é o número de modo (inteiro), $A_0$ a amplitude inicial em l.u., e
+$x_c$ a posição média (tipicamente $x_c = 80$). O número de onda físico
+adimensional associado é $\alpha = 2\pi m$, tomando $\Lref = N_Y$ como
+comprimento de referência.
+
+\subsection{Pré-pressurização de Darcy}
+
+Para evitar o transiente de rampa hidrodinâmica que contaminaria os
+primeiros milhares de passos, o campo de densidade $\rho(x,y)$ é
+inicializado com o gradiente analítico de Darcy:
+\begin{equation}
+    \frac{d\rho}{dx} = 3\,\frac{\nu_i(x)}{K_0}\,U_{\mathrm{inlet}},
+    \qquad
+    i = \begin{cases} \mathrm{in},  & x < x_c \\ \mathrm{out}, & x \geq x_c\end{cases}
+\end{equation}
+ancorado em $\rho(N_X-1) = 1$, e propagado para trás. Esta inicialização
+garante que $\mathbf{u}(t=0) \approx U_{\mathrm{inlet}}\,\hat{\mathbf{x}}$
+de maneira consistente com Darcy.
+
+\subsection{Condições de contorno}
+
+\begin{itemize}
+    \item \textbf{Entrada} ($x=0$): velocidade prescrita Zou--He com
+    $u_x = U_{\mathrm{inlet}}$, $u_y = 0$.
+    \item \textbf{Saída} ($x=N_X-1$): pressão prescrita Zou--He com $\rho = 1$.
+    \item \textbf{Topo/fundo} ($y=0, N_Y-1$): periódicas em $y$, consistentes
+    com a hipótese de modo de Fourier puro.
+\end{itemize}
+
+% ────────────────────────────────────────────────────────────────────
+\section{Extração da taxa de crescimento numérica}
+% ────────────────────────────────────────────────────────────────────
+
+\subsection{Posição da interface}
+
+A cada \textit{snapshot} temporal, lê-se o campo $\phi(x,y,t_n)$ a partir
+do arquivo VTK exportado. Para cada linha $y$, localiza-se a posição
+$x^\star(y,t_n)$ do contorno $\phi=0$ por interpolação linear entre os
+dois nós adjacentes onde ocorre a mudança de sinal:
+\begin{equation}
+    x^\star(y) = x_\ell + \frac{\phi(x_\ell, y)}{\phi(x_\ell,y) - \phi(x_\ell+1, y)},
+\end{equation}
+o que fornece precisão sub-pixel ($O(\Delta x^2)$ se $W \gtrsim 3$).
+
+\subsection{Amplitude do modo $m$ via projeção de Fourier}
+
+A amplitude do modo de interesse é extraída por projeção:
+\begin{equation}
+    A(t_n) = \frac{2}{N_Y}\left| \sum_{y=0}^{N_Y-1}
+        x^\star(y, t_n)\,
+        \exp\!\left( -\frac{2\pi i\,m\,y}{N_Y} \right) \right|.
+    \label{eq:Amp}
+\end{equation}
+Esta projeção é estritamente mais robusta que a métrica
+$A_{\max-\min} = \tfrac{1}{2}(\max_y x^\star - \min_y x^\star)$ porque
+\textbf{(i)} filtra modos espúrios de alta frequência, \textbf{(ii)}
+suprime contribuições de ruído branco no campo $\phi$ e \textbf{(iii)} é
+invariante a translações rígidas da interface.
+
+\subsection{Ajuste exponencial e estimador primário $s_{\mathrm{num}}$}
+
+No regime linear, espera-se $A(t) = A_0\,e^{s\,t}$. Tomando o logaritmo e
+realizando regressão linear em mínimos quadrados na janela
+$[t_0, t_1]$:
+\begin{equation}
+    s_{\mathrm{num}} = \mathrm{slope}\!\left[ \log A(t_n) \;\big|\; t_n \in [t_0, t_1] \right].
+    \label{eq:snum}
+\end{equation}
+
+\subsection{Estimadores complementares: $s_{\mathrm{local}}$}
+
+Para identificar o trecho efetivamente linear da série e detectar viés
+do polyfit por inclusão de pontos fora do regime, define-se a taxa
+\textbf{instantânea}:
+\begin{equation}
+    s_{\mathrm{local}}(t_n) = \frac{d}{dt}\log A
+    \;\approx\;
+    \mathrm{slope}\!\left[ \log A(t_j)\;|\;j\in[n-k,\,n+k] \right],
+    \label{eq:sloc}
+\end{equation}
+calculada por regressão linear deslizante com janela de $2k+1$ pontos
+($k$ adaptativo, tipicamente $k = N_{\mathrm{snap}}/16$). A partir dela
+extraem-se dois estimadores robustos:
+
+\begin{itemize}
+    \item \textbf{Pico}\quad
+    $s_{\mathrm{local}}^{\max} = \max_n s_{\mathrm{local}}(t_n)$, melhor
+    estimativa pontual da taxa exponencial.
+
+    \item \textbf{Mediana na janela}\quad
+    $s_{\mathrm{local}}^{\mathrm{med}} = \mathrm{median}\,\{s_{\mathrm{local}}(t_n)\,:\,t_n\in[t_0,t_1]\}$,
+    estimador robusto a curvatura nas bordas da janela.
+\end{itemize}
+
+\subsection{Detecção automática da janela de ajuste}
+
+A janela $[t_0,t_1]$ é detectada automaticamente como o platô contíguo de
+$s_{\mathrm{local}}(t)$ centrado em seu pico, dentro de uma tolerância
+relativa $\delta$:
+\begin{equation}
+    [t_0, t_1] = \left\{ t_n \;\bigg|\;
+    \frac{s_{\mathrm{local}}^{\max} - s_{\mathrm{local}}(t_n)}{s_{\mathrm{local}}^{\max}} \le \delta \right\}_{\text{contíguo a }t_{\mathrm{peak}}}.
+\end{equation}
+A tolerância é relaxada em escada ($\delta = 4\%, 6\%, 9\%, 13\%, 20\%$)
+até a janela conter ao menos $N_{\min} = 6$ pontos.
+
+% ────────────────────────────────────────────────────────────────────
+\section{Relação de dispersão analítica (LSA de Darcy)}
+% ────────────────────────────────────────────────────────────────────
+
+\subsection{Hipóteses}
+
+A análise linear assume: \textbf{(i)} escoamento de Darcy
+em meio poroso homogêneo; \textbf{(ii)} interface abrupta (limite
+$W\to 0$); \textbf{(iii)} perturbação de Fourier puro $\delta x(y,t) =
+A(t)\cos(ky)$ com $k = 2\pi m/N_Y$; \textbf{(iv)} velocidade base
+uniforme $U_{\mathrm{inlet}}$ à montante.
+
+\subsection{Equação 9: forma adimensional}
+
+Adotando $\Lref = N_Y$ e $\Uref = U_{\mathrm{inlet}}$, a taxa adimensional
+$\zeta = s\,\Lref/\Uref$ em função do número de onda adimensional
+$\alpha = k\,\Lref = 2\pi m$ é
+\begin{equation}
+    \boxed{\;
+    \zeta(\alpha) \;=\;
+    \alpha\,\frac{M-1}{M+1}
+    \;+\;
+    \frac{\Da}{\Ca\,(1+M)}\,\alpha\,
+    \Bigl[\, \Bo \;-\; \alpha^2 \;+\; \Cam\,\Lambda_m\,\alpha\,(H_{0n}^2 - H_{0t}^2)\,\Bigr].
+    \;}
+    \label{eq:zeta}
+\end{equation}
+
+Os grupos adimensionais são:
+\begin{align}
+    M    &= \nu_{\mathrm{out}}/\nu_{\mathrm{in}}
+    & \text{(razão de viscosidades)} \\
+    \Da  &= K_0/\Lref^2
+    & \text{(número de Darcy)} \\
+    \Ca  &= \nu_{\mathrm{in}}\,\Uref / \sigma
+    & \text{(número capilar)} \\
+    \Bo  &= 0
+    & \text{(sem gravidade)} \\
+    \Cam &= \chi\,H_0^2\,\Lref / \sigma
+    & \text{(número de Bond magnético)} \\
+    \Lambda_m &= \chi/(2+\chi)
+    & \text{(contraste de suscetibilidade)} \\
+    H_{0n}^2,\,H_{0t}^2 &= \cos^2\theta,\,\sin^2\theta
+    & \text{(componentes do campo)}
+\end{align}
+
+A taxa dimensional analítica (em $\mathrm{l.u.}^{-1}$, isto é, por
+passo de tempo da rede) é
+\begin{equation}
+    s_{\mathrm{ana}} = \zeta(\alpha)\,\frac{\Uref}{\Lref}.
+    \label{eq:sana}
+\end{equation}
+
+\subsection{Limite hidrodinâmico puro}
+
+Nos casos aqui apresentados ($H_0 = 0$, $\chi = 0$, $\Bo = 0$), a Eq.\
+(\ref{eq:zeta}) reduz-se a
+\begin{equation}
+    \zeta(\alpha) = \alpha\,\frac{M-1}{M+1} - \frac{\Da}{\Ca\,(1+M)}\,\alpha^3,
+\end{equation}
+expressando a competição entre o termo viscoso desestabilizador
+$\propto\alpha\,(M-1)/(M+1)$ e o termo capilar estabilizador
+$\propto -\alpha^3$. O modo dominante (mais instável) ocorre em
+\begin{equation}
+    \alpha^\star = \sqrt{ \frac{\Ca\,(M-1)}{3\,\Da} }.
+\end{equation}
+
+% ────────────────────────────────────────────────────────────────────
+\section{Métrica de erro e protocolo de validação}
+% ────────────────────────────────────────────────────────────────────
+
+\subsection{Erro relativo}
+
+Para cada estimador numérico $\hat{s}\in\{s_{\mathrm{num}},\,
+s_{\mathrm{local}}^{\max},\,s_{\mathrm{local}}^{\mathrm{med}}\}$, o erro
+relativo percentual é definido por
+\begin{equation}
+    \varepsilon(\hat{s}) = \frac{\bigl|\hat{s} - s_{\mathrm{ana}}\bigr|}{|s_{\mathrm{ana}}|}\times 100\%.
+    \label{eq:erro}
+\end{equation}
+
+\subsection{Critérios de qualidade da simulação}
+
+A validade da comparação requer que os parâmetros físicos do caso
+respeitem os limites do regime linear da LSA. Os critérios monitorados
+são:
+
+\begin{enumerate}
+    \item \textbf{Resolução da interface:} $W \geq 3$ l.u.\ (critério de
+    Nyquist para gradientes em D2Q9). Abaixo disso, correntes espúrias
+    contaminam a dinâmica capilar.
+
+    \item \textbf{Razão amplitude/espessura:} $A_0/W \lesssim 0{,}1$ para
+    permanecer no regime linear da CH (mantém $|\delta\phi| \ll 1$).
+    Valores até $A_0 \sim W/2$ ainda são tolerados na prática.
+
+    \item \textbf{Produto $k\xi$:} a LSA clássica assume interface abrupta;
+    o desvio é $\Delta\zeta/\zeta \propto (k\xi)^2$, onde
+    $\xi = W\sqrt{2}$ é a espessura efetiva. Valores $k\xi \lesssim 0{,}02$
+    mantêm o erro abaixo de 5\%.
+
+    \item \textbf{Conservação de massa:} $|\Delta m|/m_0 < 10^{-3}$ no
+    relatório de execução.
+
+    \item \textbf{Concordância entre estimadores:} a diferença
+    $|s_{\mathrm{num}} - s_{\mathrm{local}}^{\mathrm{med}}|$ deve ser
+    pequena (idealmente menor que o próprio erro vs analítico). Divergência
+    significa que a janela de ajuste contém pontos fora do regime
+    exponencial puro, e o valor de $s_{\mathrm{num}}$ está viesado.
+\end{enumerate}
+
+\subsection{Hierarquia de confiabilidade}
+
+A combinação dos três estimadores fornece informação além de qualquer
+um isolado:
+
+\begin{itemize}
+    \item \textbf{Concordância dos três} ($|s_{\mathrm{num}}-s_{\mathrm{local}}^{\mathrm{med}}| < 2\,\mathrm{pp}$):
+    o regime exponencial foi capturado de forma estável; a taxa medida é
+    confiável.
+
+    \item \textbf{Discordância apenas do polyfit:} a janela inclui
+    curvatura nas bordas. $s_{\mathrm{local}}^{\mathrm{med}}$ é o
+    estimador preferido nesse caso.
+
+    \item \textbf{Discordância dos três:} o caso não está em regime linear
+    (amplitude inicial fora dos limites, ou $k\xi$ excessivo). O erro
+    reportado não é representativo da física.
+\end{itemize}
+
+% ────────────────────────────────────────────────────────────────────
+\section{Implementação computacional}
+% ────────────────────────────────────────────────────────────────────
+
+O simulador é escrito em Python + Numba (compilação JIT com
+\texttt{@njit(parallel=True)}). Os módulos principais são:
+\begin{itemize}
+    \item \texttt{lbm/lbm.py} --- colisão BGK D2Q9, forçamento de Guo,
+    arrasto Darcy, condições Zou--He.
+    \item \texttt{cahn\_hilliard/cahn\_hilliard.py} --- evolução temporal
+    de $\phi$ com \textit{substepping}.
+    \item \texttt{Magnetismo/poisson.py} --- solver SOR para o
+    potencial magnético escalar $\widetilde{\psi}$ (desativado nos casos
+    deste relatório).
+    \item \texttt{initialization/initialization.py} ---
+    pré-pressurização de Darcy, perfil $\tanh$ perturbado e equilíbrio
+    LBM consistente.
+    \item \texttt{post\_process/valida\_lsa.py} --- extração de
+    amplitudes, ajuste exponencial e relatório.
+\end{itemize}
+
+A integração completa de um caso típico ($N_X\!\times\!N_Y = 920\!\times\!1024$,
+$T_{\max} = \num{96000}$ passos) executa em $\sim$\num{2.5} horas em uma
+máquina padrão.
+
+% ────────────────────────────────────────────────────────────────────
+\section{Resumo do fluxo de validação}
+% ────────────────────────────────────────────────────────────────────
+
+\begin{enumerate}
+    \item Definir parâmetros do caso em \texttt{casos.json}:
+    $N_X$, $N_Y$, $\tau_{\mathrm{in}}$, $\tau_{\mathrm{out}}$,
+    $U_{\mathrm{inlet}}$, $K_0$, $\sigma$, $W$, $A_0$, $m$,
+    $M_\phi$, $N_{\mathrm{sub}}$.
+
+    \item Executar \texttt{python main.py} $\rightarrow$ geração de
+    \texttt{relatorio\_execucao.json} e snapshots VTK.
+
+    \item Executar \texttt{python post\_process/valida\_lsa.py <case\_dir>}
+    $\rightarrow$ leitura dos VTKs, extração de $A(t)$ via Eq.\
+    (\ref{eq:Amp}), detecção do platô de $s_{\mathrm{local}}$, cálculo
+    dos três estimadores e comparação com Eq.\ (\ref{eq:sana}).
+
+    \item Análise: comparar $\varepsilon(s_{\mathrm{num}})$,
+    $\varepsilon(s_{\mathrm{local}}^{\max})$ e
+    $\varepsilon(s_{\mathrm{local}}^{\mathrm{med}})$ segundo a hierarquia
+    de confiabilidade da Seção 6.3.
+\end{enumerate}
+
+\end{document}
