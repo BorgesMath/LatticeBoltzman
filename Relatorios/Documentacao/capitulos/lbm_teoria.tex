@@ -1,0 +1,194 @@
+\section{Computational Methodology}
+
+\subsection{Lattice Boltzmann Method and Solver Formulation}
+Unlike the Finite Volume Method (FVM), which discretizes the macroscopic Navier-Stokes equations and requires computationally expensive procedures to resolve pressure-velocity coupling, the Lattice Boltzmann Method (LBM) operates at the mesoscopic scale. It solves the discrete Boltzmann transport equation, recovering macroscopic hydrodynamics via the Chapman-Enskog expansion \cite{chen1998lattice}. This kinetic approach offers explicit time integration, exact linear advection, and local collision rules, making it highly efficient for handling the complex boundaries inherent to porous media. [FALAR DE PORQUE É BOM PARA ESSE CASO EM ESPECIFICO]
+
+The spatial domain is discretized into a uniform global Cartesian mesh. The velocity space at each node is quantized using the D2Q9 lattice model, which defines nine discrete velocity vectors $\mathbf{c}_i$: one rest particle, four cardinal, and four diagonal directions \cite{qian1992lattice}. This specific lattice provides the necessary symmetry and isotropy to correctly recover the full Navier-Stokes stress tensor in two dimensions.
+
+% INSERT D2Q9 IMAGE HERE
+
+The evolution of the system is governed by the discrete Lattice Boltzmann equation employing the single-relaxation-time Bhatnagar-Gross-Krook (BGK) collision operator \cite{bhatnagar1954model}. To accurately couple the phase-field model and introduce macroscopic forces into the mesoscopic distributions, an exact forcing term $S_i$ \cite{guo2002discrete} is utilized:
+\begin{equation}
+    f_i(\mathbf{x} + \mathbf{c}_i \Delta t, t + \Delta t) = f_i(\mathbf{x}, t) - \frac{1}{\tau(\phi)} \left[ f_i(\mathbf{x}, t) - f_i^{eq}(\mathbf{x}, t) \right] + S_i \Delta t
+\end{equation}
+where $f_i$ are the density distribution functions, $\mathbf{c}_i$ are the discrete lattice velocities, and $\tau$ is the relaxation time. Computationally, $\tau$ is linearly interpolated across the fluid interface based on the local phase fraction $\phi$. This interpolation ensures a smooth transition of kinematic viscosity between the distinct fluid phases, avoiding numerical instabilities associated with sharp gradients.  [FALAR SE DA PARA RECUPERAR A EQUAÇÃO DE ESCOAMENTO EM MEIO POROSO COM UM FLUIDO MULTIFASICO]
+
+\subsection{Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}
+
+The order parameter $\phi$ whose theoretical formulation was established in the Phase-Field Modeling section is evolved by a dedicated finite-difference module that runs alongside the LBM hydrodynamic kernel. Because the advective Cahn-Hilliard equation
+\begin{equation}
+    \frac{\partial \phi}{\partial t} + \mathbf{u} \cdot \nabla \phi = M\,\nabla^2 \mu_c, \qquad \mu_c = 4\beta\,\phi(\phi^2 - 1) - \kappa\,\nabla^2 \phi,
+\end{equation}
+is fourth-order in $\phi$, a one-shot discretization would require a wide biharmonic stencil. Instead, the implementation splits the update into two coupled second-order passes — first computing the chemical potential field $\mu_c$ over the entire domain, then advancing $\phi$ using $\nabla^2 \mu_c$ — which reduces every stencil to five points and makes the algorithm naturally local.
+
+\subsubsection{Five-Point Isotropic Stencil}
+All spatial derivatives are evaluated on the same uniform Cartesian grid used by the LBM kernel, with lattice spacing $\Delta x = 1$ in lattice units. The Laplacian of any scalar field $\psi$ is approximated by the standard five-point stencil:
+\begin{equation}
+    \nabla^2 \psi(y, x) \approx \psi(y, x{+}1) + \psi(y, x{-}1) + \psi(y{+}1, x) + \psi(y{-}1, x) - 4\,\psi(y, x).
+\end{equation}
+The first spatial derivatives entering the advective term $\mathbf{u} \cdot \nabla \phi$ are computed using second-order centred differences, e.g.\ $\partial_x \phi \approx [\phi(y, x{+}1) - \phi(y, x{-}1)]/2$. The five-point Laplacian carries a small leading-order anisotropy, but this is acceptable here because the Cahn-Hilliard relaxation acts on a thermodynamic timescale much shorter than the hydrodynamic timescale, smoothing out grid-induced artefacts. By contrast, the macroscopic force computation in the LBM kernel uses the more demanding 9-point isotropic stencil, since spurious anisotropic currents at the interface would directly contaminate the momentum balance.
+
+\subsubsection{Boundary Conditions}
+The boundary treatment of the order parameter is fully consistent with the boundary conditions imposed by the LBM kernel. The transverse boundaries ($y = 0$ and $y = N_y - 1$) are always treated as periodic, mirroring the spanwise periodicity of the LBM mesh. The longitudinal boundaries depend on the simulation mode:
+\begin{itemize}
+    \item \textbf{Inlet ($x = 0$, injection mode):} a Dirichlet condition $\phi = +1$ is enforced, representing the continuous injection of the pure invading phase. The condition is reapplied both before computing $\mu_c$ and after the temporal update, to prevent the explicit Euler step from disturbing the boundary value through the centred-difference advective stencil.
+    \item \textbf{Outlet ($x = N_x - 1$):} a homogeneous Neumann condition $\partial_x \phi = 0$ is enforced by copying the value from the adjacent internal node, $\phi_{N_x-1} = \phi_{N_x-2}$. This allows the interface to be advected smoothly out of the computational domain without spurious reflection.
+    \item \textbf{Chemical potential $\mu_c$ at both $x$-boundaries:} homogeneous Neumann ($\partial_x \mu_c = 0$). Physically, this nullifies the diffusive flux $M \nabla \mu_c$ across the longitudinal boundaries — at the inlet, the phase composition is dictated by the injection Dirichlet condition, not by diffusion; at the outlet, the only allowed mass flux is the advective sweep by the velocity field.
+\end{itemize}
+For fully periodic configurations (e.g.\ spatially periodic linear-stability test cases), both $x$-boundaries are treated periodically through modular indexing, identical to the $y$ treatment.
+
+\subsubsection{Explicit Euler Update and Numerical Safeguards}
+After the chemical potential field has been finalised, the order parameter is advanced through an explicit first-order Euler scheme:
+\begin{equation}
+    \phi^{n+1}(y, x) = \phi^n(y, x) + \Delta t_{CH}\left[ M\,\nabla^2 \mu_c - \left(u_x\,\partial_x \phi + u_y\,\partial_y \phi\right) \right].
+\end{equation}
+The velocity field $(u_x, u_y)$ here is the physical velocity recovered from the Guo forcing scheme described below. To prevent unphysical overshoots of the order parameter beyond the bulk equilibrium values $\phi = \pm 1$ — overshoots that the quartic bulk term of $\mathcal{F}$ can amplify into catastrophic numerical blow-up — the updated values are clamped to the physical interval $\phi^{n+1} \in [-1, +1]$ before being stored. In well-resolved simulations (sufficient interface thickness and properly calibrated mobility), the clamp is essentially never active and the associated mass error is negligible; the clamp is retained as a numerical safety net for transient instabilities, e.g.\ during the start-up phase or near very high mobility-ratio interfaces.
+
+The update is implemented through a double-buffer pattern (\texttt{phi\_in}, \texttt{phi\_out}) so that the right-hand side at each grid point is evaluated using the field $\phi^n$ everywhere, never with partially updated values from earlier in the sweep. The buffer pointers are swapped externally between substeps, avoiding any in-place memory hazard.
+
+\subsubsection{Temporal Substepping and CFL Constraint}
+The Cahn-Hilliard equation is fourth-order in space, so the explicit-Euler stability bound scales as $(\Delta x)^4$:
+\begin{equation}
+    \Delta t_{CH} \lesssim \frac{(\Delta x)^4}{4\,M\,\kappa},
+\end{equation}
+which is considerably more restrictive than the convective CFL of the LBM kernel ($\Delta t_{LBM} \lesssim \Delta x / c_s$). To preserve the natural unit time step of the LBM while honouring the Cahn-Hilliard stability bound, the solver is invoked $N_{sub}$ times per LBM step, with reduced substep $\Delta t_{CH} = \Delta t_{LBM} / N_{sub}$. The number of substeps is chosen at runtime such that the diffusive CFL is satisfied with a safety margin, conventionally targeting $M\,\kappa\,\Delta t_{CH} / (\Delta x)^4 \leq 0.1$. For the simulations presented in this work, typical values fall in the range $N_{sub} \in [5, 20]$, with larger values required when $\sigma$ (and therefore the product $\kappa\beta$) is increased to suppress numerical mixing at high mobility ratio.
+
+\subsubsection{Parallelization and Coupling}
+The substep routine is compiled by Numba with \texttt{@njit(parallel=True, cache=True)}, and the outer loop over transverse rows ($y$) is parallelised using \texttt{prange}. Because the five-point stencil is local and the temporal update writes only to \texttt{phi\_out}, there are no inter-row data dependencies and the parallel reduction is embarrassingly parallel. The chemical-potential computation and the temporal update are kept in separate parallel passes because the second pass reads $\mu_c$ at the four nearest neighbours and therefore requires the $\mu_c$ field to be fully populated across all rows before any value of $\phi^{n+1}$ is computed. This two-phase structure is the algorithmic image of the second-order operator splitting of the original fourth-order equation.
+
+At the end of each LBM step, the updated phase field $\phi$ is consumed by three physically distinct couplings in the next iteration: the heterogeneous magnetic susceptibility $\chi(\phi)$ used by the Poisson solver, the local permeability $K(\phi)$ used by the Guo forcing scheme, and the interpolated kinematic viscosity $\nu(\phi)$ entering the BGK relaxation time. The capillary body force $\mathbf{F}_s = \mu_c \nabla \phi$ is reassembled inside the LBM kernel from the latest $\phi$ field rather than being passed in from the Cahn-Hilliard module, so that all three macroscopic forces ($\mathbf{F}_s$, $\mathbf{F}_m$, and the Darcy drag) act on the same instantaneous phase configuration.
+
+\subsection{External Forcing: Interfacial and Magnetic Couplings}
+The total macroscopic body force $\mathbf{F} = \mathbf{F}_s + \mathbf{F}_m$ acts as a source term for the momentum update at each discrete time step.
+
+The isotropic capillary force (Korteweg stress) is recovered directly from the chemical potential gradient of the Cahn-Hilliard phase-field model \cite{cahn1958free}:
+\begin{equation}
+    \mathbf{F}_s = \mu \nabla \phi = \left[ 4\beta\phi(\phi^2-1) - \kappa\nabla^2\phi \right] \nabla \phi
+\end{equation}
+
+The magnetic  force (Kelvin force) arises from heterogeneities in the magnetic susceptibility $\chi(\phi)$ subjected to an external scalar potential field $\psi$. To suppress grid-dependent truncation errors in the numerical implementation, this force is computed via tensorial decomposition:
+\begin{equation}
+    \mathbf{F}_m = \chi \left( \frac{\partial \psi}{\partial x} \nabla \frac{\partial \psi}{\partial x} + \frac{\partial \psi}{\partial y} \nabla \frac{\partial \psi}{\partial y} \right)
+\end{equation}
+All spatial derivatives and Laplacians required to compute these interfacial and magnetic forces are evaluated using 9-point isotropic finite difference schemes. This approach mitigates the intrinsic geometric anisotropy of the Cartesian grid and improves numerical stability near moving interfaces.
+[CITAR E EXPLICAR A FORÇA DE KELVIN DE ACORDO COM ARTIGO DE FRANSCICO RICARDO DA CUNHA E RAFAEL GABLER CONTIJO. O CASO DESSES ARTIGOS DELE USA O POTENCIAL MAGNETICO TBM?.  EXPLIQUE MELHOR PORQUE ESSE METODO REDUZ OS ERROS DE TRUNCAMENTO E POR QUE MITIGA A ANISOTROPIA DA GRID]
+
+
+\subsection{Darcy Resistance and Kinematic Recovery (Guo Scheme)}
+To incorporate the Darcy-Brinkman resistance tensor representing a porous medium with permeability $K$, the physical fluid velocity $\mathbf{u}_{phys}$ must be decoupled from the raw first-order statistical moment. The implementation adopts the Guo forcing scheme \cite{guo2002discrete}, which implicitly recovers the true physical velocity by analytically solving for the drag parameter $\sigma = \nu/K$:
+\begin{equation}
+    \mathbf{u}_{phys} = \frac{\sum f_i \mathbf{c}_i + \frac{\Delta t}{2} (\mathbf{F}_s + \mathbf{F}_m)}{1 + \frac{\Delta t}{2} \sigma}
+\end{equation}
+Consequently, the effective total force used to compute the discrete source term $S_i$ in the evolution equation is dynamically adjusted by subtracting the viscous pressure drop induced by the solid matrix: $\mathbf{F}_{total} = (\mathbf{F}_s + \mathbf{F}_m) - \sigma \rho \mathbf{u}_{phys}$.
+
+\subsection{Boundary Conditions}
+The streaming step advects post-collision populations to adjacent nodes. At the longitudinal solid boundaries ($y=0$ and $y=N_y-1$), the no-slip condition is enforced via the half-way bounce-back scheme \cite{zou1997analytical}. Algorithmically, this reflects the incoming distribution functions strictly back to their origin node ($\mathbf{c}_{\bar{i}} = -\mathbf{c}_i$), ensuring exact mass conservation at the walls.
+
+At the transverse open boundaries, asymmetric conditions are implemented to simulate a semi-infinite flow-driven channel:
+\begin{itemize}
+    \item \textbf{Inlet ($x=0$)}: A constant velocity Dirichlet condition is applied. Missing incoming populations are reconstructed using the equilibrium distribution $f_i^{eq}$ defined by the prescribed velocity $\mathbf{u} = (U_{in}, 0)$. To prevent unphysical pressure build-up and maintain consistency with the internal Darcy resistance field, the local macroscopic density is not hard-coded; instead, it is backward-extrapolated from the first internal fluid node ($\rho = \rho_{x=1}$).
+    \item \textbf{Outlet ($x=N_x-1$)}: A Neumann-type convective boundary condition is applied to allow the smooth exit of interfacial perturbations. The code implements a second-order spatial extrapolation for the populations ($f_i^{N_x-1} = 2f_i^{N_x-2} - f_i^{N_x-3}$). This numerical approach effectively nullifies the second derivatives at the boundary, mitigating spurious mass and acoustic reflections back into the computational domain.
+\end{itemize}
+
+\subsection{Algorithm Structure and Main Loop}
+The computational implementation strictly follows the standard LBM algorithm structure. After initializing the macroscopic fields ($\rho, \mathbf{u}, \phi$) and establishing the initial equilibrium distributions, the main temporal loop executes the following sequential steps at each iteration:
+\begin{enumerate}
+    \item \textbf{Macroscopic and Forcing Calculation}: The interfacial variables and external forces ($\mathbf{F}_s, \mathbf{F}_m$) are evaluated using spatial finite differences. The physical velocity $\mathbf{u}_{phys}$ is subsequently recovered.
+    \item \textbf{Collision Step}: The local equilibrium distribution $f_i^{eq}$ and source term $S_i$ are computed. The distributions $f_i$ are then relaxed locally according to the BGK operator.
+    \item \textbf{Streaming Step}: The post-collision populations are advected linearly to their respective neighboring nodes along the $\mathbf{c}_i$ directions.
+    \item \textbf{Boundary Conditions}: The bounce-back and open boundary rules are applied to reconstruct unknown incoming populations at the domain edges.
+    \item \textbf{Macroscopic Update}: The fluid density $\rho$ and phase fraction $\phi$ are updated via the zeroth-order moments of their respective distributions, advancing the system to $t + \Delta t$.
+\end{enumerate}
+
+
+
+
+\subsection{Code Validation: 2D Poiseuille Flow}
+To verify the accuracy of the implemented LBM collision operators and boundary conditions, a fundamental Poiseuille flow in a two-dimensional channel was simulated. The computational domain was discretized into $N_x \times N_y = 200 \times 50$ lattice nodes. The flow is kinematically driven by a constant inlet velocity condition of $U_{in} = 0.01$ lattice units (lu) enforced at $x=0$, while the zero-gradient convective boundary condition is applied at the outlet ($x=199$). No-slip conditions at the upper and lower rigid walls are recovered via the half-way bounce-back rule [EXPLICAR MELHOR O QUE SÃO O HALF-WAY E O BOUNCE-BACK E PORQUE SE PODE USAR ISSO, ALEM DE CITAR ARITGO QUE DESENVOLVEU ISSO]. [FALAR QUE O CASO SIMULADO ASSIM ESTA EM UMA BRANCH DO GITHUB + PASSAR LINK]
+
+The theoretical velocity profile for a fully developed, steady, incompressible channel flow is given by the parabolic equation [CITAR ARTIGO]:
+\begin{equation}
+    u_x(y) = \frac{4 U_{max}}{H^2} y (H - y)
+\end{equation}
+where $H$ is the physical channel width and $U_{max} = 1.5 U_{in}$ is the theoretical centerline velocity.
+
+A critical aspect of comparing the numerical LBM results with the analytical continuous formulation is the spatial coordinate correction. Because the half-way bounce-back scheme algorithmically locates the physical solid wall exactly halfway between the boundary fluid node and the external ghost node, the numerical transverse coordinates must be shifted by $\Delta y = 0.5$ lu, such that $y_{phys} = y_{lattice} + 0.5$. Consequently, the effective physical channel width is exactly $H = N_y$.
+
+The numerical longitudinal velocity profile ($u_x$) was extracted at the transversal section $x=190$ to guarantee that the hydrodynamic analysis occurs within the fully developed flow region. The numerical solution exhibited excellent agreement with the analytical prediction, as shown in Figure \ref{fig:poiseuille_validation}. 
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{figuras/validacao_lbm/poiseuille_validacao.png}
+    \caption{Enter Caption}
+    \label{fig:placeholder}
+\end{figure}
+
+
+The quantitative convergence analysis validates the incompressibility assumption and the robustness of the boundary schemes. For the prescribed inlet velocity, the measured mean velocity in the evaluation section was $0.009942$ lu. The local divergence between the simulated and exact fields resulted in a relative $L_2$ norm error of $6.0272 \times 10^{-3}$. Furthermore, the absolute deviations remained strictly bounded, yielding a Mean Absolute Error (MAE) of $5.9861 \times 10^{-5}$ lu and a Root Mean Square Error (RMSE) of $6.6025 \times 10^{-5}$ lu, confirming the second-order spatial accuracy characteristic of the standard D2Q9 LBM solver.
+
+\section{Darcy-Brinkman Regime and Permeability Validation}
+
+\subsection{Guo Forcing Scheme and Kinematic Synchronization}
+In porous media simulations, the solid matrix induces a macroscopic drag force $\mathbf{F}_d = -\frac{\nu}{K} \rho \mathbf{u}$. Incorporating this velocity-dependent resistance directly into the standard Lattice Boltzmann equation introduces numerical instability and breaks the second-order spatial accuracy of the collision operator. 
+
+To resolve this, the implementation utilizes the exact forcing scheme proposed by Guo et al. \cite{guo2002discrete}. This method analytically decouples the true physical velocity $\mathbf{u}$ from the macroscopic force computation by solving the implicit momentum balance:
+\begin{equation}
+    \mathbf{u} = \frac{\sum f_i \mathbf{c}_i + \frac{\Delta t}{2} \mathbf{F}_{ext}}{\rho \left(1 + \frac{\Delta t}{2} \frac{\nu}{K}\right)}
+\end{equation}
+where $\mathbf{F}_{ext}$ encapsulates all explicit external body forces (e.g., capillary or magnetic forces) and $K$ is the intrinsic permeability. 
+
+This formulation guarantees algorithmic synchronization with normal free-flow regions. In zones without porous structures ($K \to \infty$), the structural resistance denominator converges to unity ($\sigma = \nu/K \to 0$). Consequently, the system recovers standard Navier-Stokes hydrodynamics smoothly and continuously, eliminating the need for conditional logic (branching) at fluid-porous interfaces. [ESSA PARTE ESTÁ REDUNDANTE EM PARTES COM O  %% \subsection{Darcy Resistance and Kinematic Recovery (Guo Scheme)  %% VER O QUE SAI E O QUE FICA ]
+
+\subsection{Data Extraction and $K$ Recovery Methodology}
+The numerical validation of the porous resistance was conducted in a $200 \times 50$ lattice domain. The flow was driven by a constant kinematic inlet ($U_{in} = 0.01$ lu) and constrained by a strict thermodynamic Dirichlet boundary at the outlet ($\rho_{out} = 1.0$). [FALAR QUE O CASO SIMULADO ASSIM ESTA EM UMA BRANCH DO GITHUB + PASSAR LINK]
+
+To rigorously evaluate the permeability recovery, it is mandatory to eliminate spurious kinetic artifacts generated by non-equilibrium population reconstructions at the open boundaries. Therefore, the hydrodynamic variables were extracted exclusively from the channel centerline ($y = N_y/2$) within a spatially truncated, fully developed ``bulk region'' defined between $x = 0.25N_x$ and $x = 0.75N_x$. 
+
+The thermodynamic pressure $P$ was computed directly from the local density via the LBM isothermal equation of state ($P = c_s^2 \rho$). For a homogeneous porous medium, Darcy's Law dictates that the longitudinal pressure profile must exhibit a strictly linear drop. The macroscopic pressure gradient $\nabla P$ was extracted numerically via a linear least-squares regression applied to the centerline pressure nodes within the bulk region.
+
+Subsequently, the algorithm's recovered numerical permeability ($K_{num}$) was calculated by inverting Darcy's equation:
+\begin{equation}
+    K_{num} = \frac{\nu \bar{\rho} \bar{u}_x}{-\nabla P}
+\end{equation}
+where $\bar{\rho}$ and $\bar{u}_x$ are the spatially averaged density and longitudinal velocity across the bulk region.
+
+\subsection{Validation Results}
+The numerical framework was evaluated against analytical solutions for Brinkman flow in a channel bounded by parallel no-slip walls \cite{brinkman1949calculation}:
+\begin{equation}
+    u_x(y) = U_{darcy} \left[ 1 - \frac{\cosh\left(\frac{y - H/2}{\sqrt{K_0}}\right)}{\cosh\left(\frac{H}{2\sqrt{K_0}}\right)} \right] \quad \text{where} \quad U_{darcy} = -\frac{\nabla P \cdot K_0}{\nu \bar{\rho}}
+\end{equation}
+
+As depicted in Figure \ref{fig:darcy_profile}, for a baseline test with imposed permeability $K_0 = 10.0$ lu, the LBM solver accurately captured the linear thermodynamic pressure decay (yielding a recovered $K_{num} \approx 9.99$ lu). The extracted transverse velocity profile perfectly reproduced the analytical plug-flow characteristic induced by the Brinkman viscous resistance.
+
+\begin{figure}[h!]
+    \centering
+    \framebox{\parbox{0.9\textwidth}{\centering
+      \vspace{3cm}
+      \textbf{[INSERT: Escoamento de Darcy para validacao.png]} \\
+      \small\textit{Left: Linear pressure drop within the bulk region. Right: Transverse velocity profile vs Brinkman analytical solution.}
+      \vspace{3cm}
+    }}
+    \caption{Hydrodynamic validation of the internal resistance field for $K_0 = 10.0$ lu.}
+    \label{fig:darcy_profile}
+\end{figure}
+
+To map the stability limits of the forcing scheme, an automated parametric sweep was conducted for $K_0 \in [0.5, 20.0]$ lu. Figure \ref{fig:darcy_error} confirms an ideal parity between the imposed $K_0$ and the numerical $K_{num}$. 
+
+\begin{figure}[h!]
+    \centering
+    \framebox{\parbox{0.9\textwidth}{\centering
+      \vspace{3cm}
+      \textbf{[INSERT: Escoamento de Darcy para validacao - Recuperacao de K.png]} \\
+      \small\textit{Left: Parity plot ($K_0$ vs $K_{num}$). Right: Relative error distribution.}
+      \vspace{3cm}
+    }}
+    \caption{Permeability recovery performance and relative computational error across different porous regimes.}
+    \label{fig:darcy_error}
+\end{figure}
+
+The relative computational error remained strictly bounded below $0.8\%$ for all scenarios. Accuracy maximizes (error $\approx 0.1\%$) at lower permeabilities, where the solid matrix drag dominates viscous diffusion. This fully validates the thermodynamic consistency of the LBM implementation and the spatial accuracy of the Guo forcing formulation.
+
+
+
+

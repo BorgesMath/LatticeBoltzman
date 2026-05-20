@@ -1,0 +1,35 @@
+\documentclass[12pt]{article}
+
+% --- Pacotes ---
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+
+% --- Metadados ---
+\title{Título do Trabalho}
+\author{Matheus Borges}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% --- Capítulos ---
+\include{capitulos/introducao}
+\include{capitulos/objetivos}
+\include{capitulos/estado_da_arte}
+\include{capitulos/teoria}
+\include{capitulos/regime_linear_lsa}
+\include{capitulos/lbm_teoria}
+\include{capitulos/resultados}
+
+% --- Bibliografia ---
+\input{bibliografia/referencias}
+
+\end{document}
