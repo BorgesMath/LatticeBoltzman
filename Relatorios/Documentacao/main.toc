@@ -49,38 +49,38 @@
 \contentsline {subsubsection}{\numberline {5.5.3}Generalized Nondimensionalization}{35}{}%
 \contentsline {section}{\numberline {6}Computational Methodology}{39}{}%
 \contentsline {subsection}{\numberline {6.1}Lattice Boltzmann Method and Solver Formulation}{39}{}%
-\contentsline {subsection}{\numberline {6.2}Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}{40}{}%
+\contentsline {subsection}{\numberline {6.2}Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}{41}{}%
 \contentsline {subsubsection}{\numberline {6.2.1}Five-Point Isotropic Stencil}{41}{}%
-\contentsline {subsubsection}{\numberline {6.2.2}Boundary Conditions}{41}{}%
+\contentsline {subsubsection}{\numberline {6.2.2}Boundary Conditions}{42}{}%
 \contentsline {subsubsection}{\numberline {6.2.3}Explicit Euler Update and Numerical Safeguards}{42}{}%
 \contentsline {subsubsection}{\numberline {6.2.4}Temporal Substepping and the Biharmonic CFL Constraint via Von Neumann Analysis}{43}{}%
 \contentsline {paragraph}{Linearised model equation.}{43}{}%
-\contentsline {paragraph}{Spatial-temporal discretisation.}{43}{}%
+\contentsline {paragraph}{Spatial-temporal discretisation.}{44}{}%
 \contentsline {paragraph}{Insertion of the Fourier ansatz.}{44}{}%
 \contentsline {paragraph}{Stability condition.}{45}{}%
 \contentsline {paragraph}{Extension to two dimensions.}{45}{}%
 \contentsline {paragraph}{Physical manifestation of the instability.}{46}{}%
-\contentsline {paragraph}{Practical implementation in the code.}{46}{}%
+\contentsline {paragraph}{Practical implementation in the code.}{47}{}%
 \contentsline {subsubsection}{\numberline {6.2.5}Parallelization and Coupling}{47}{}%
-\contentsline {subsection}{\numberline {6.3}External Forcing: Interfacial and Magnetic Couplings}{47}{}%
-\contentsline {subsection}{\numberline {6.4}Darcy Resistance and Kinematic Recovery (Guo Scheme)}{48}{}%
-\contentsline {subsection}{\numberline {6.5}Macroscopic Limit: Chapman--Enskog Recovery of the Darcy--Brinkman--Magnetic Navier--Stokes System}{49}{}%
-\contentsline {subsubsection}{\numberline {6.5.1}Setup: D2Q9 Isotropy and the Guo-Augmented BGK Equation}{50}{}%
-\contentsline {subsubsection}{\numberline {6.5.2}Macroscopic Moments and the Implicit Drag Inversion}{51}{}%
-\contentsline {subsubsection}{\numberline {6.5.3}The Multiscale Ansatz}{52}{}%
-\contentsline {subsubsection}{\numberline {6.5.4}Continuity}{52}{}%
-\contentsline {subsubsection}{\numberline {6.5.5}Euler-Level Momentum (order $\varepsilon $)}{53}{}%
-\contentsline {subsubsection}{\numberline {6.5.6}Viscous Stress and Exact Cancellation of the Guo Spurious Term (order $\varepsilon ^{2}$)}{53}{}%
-\contentsline {subsubsection}{\numberline {6.5.7}Recombination into the Macroscopic Navier--Stokes Equation}{54}{}%
-\contentsline {subsubsection}{\numberline {6.5.8}Closure: Identification of the Three Body Forces}{55}{}%
-\contentsline {subsubsection}{\numberline {6.5.9}Final Macroscopic System}{56}{}%
-\contentsline {subsubsection}{\numberline {6.5.10}Limiting Cases and Internal Consistency}{56}{}%
-\contentsline {subsubsection}{\numberline {6.5.11}Code-to-Equation Correspondence}{57}{}%
-\contentsline {subsection}{\numberline {6.6}Boundary Conditions}{57}{}%
-\contentsline {subsection}{\numberline {6.7}Algorithm Structure and Main Loop}{59}{}%
-\contentsline {subsection}{\numberline {6.8}Code Validation: 2D Poiseuille Flow}{61}{}%
-\contentsline {section}{\numberline {7}Darcy-Brinkman Regime and Permeability Validation}{62}{}%
-\contentsline {subsection}{\numberline {7.1}Guo Forcing Scheme and Kinematic Synchronization}{62}{}%
-\contentsline {subsection}{\numberline {7.2}Data Extraction and $K$ Recovery Methodology}{63}{}%
-\contentsline {subsection}{\numberline {7.3}Validation Results}{64}{}%
-\contentsline {section}{\numberline {8}Results}{66}{}%
+\contentsline {subsection}{\numberline {6.3}External Forcing: Interfacial and Magnetic Couplings}{48}{}%
+\contentsline {subsection}{\numberline {6.4}Darcy Resistance and Kinematic Recovery (Guo Scheme)}{50}{}%
+\contentsline {subsection}{\numberline {6.5}Macroscopic Limit: Chapman--Enskog Recovery of the Darcy--Brinkman--Magnetic Navier--Stokes System}{51}{}%
+\contentsline {subsubsection}{\numberline {6.5.1}Setup: D2Q9 Isotropy and the Guo-Augmented BGK Equation}{51}{}%
+\contentsline {subsubsection}{\numberline {6.5.2}Macroscopic Moments and the Implicit Drag Inversion}{52}{}%
+\contentsline {subsubsection}{\numberline {6.5.3}The Multiscale Ansatz}{53}{}%
+\contentsline {subsubsection}{\numberline {6.5.4}Continuity}{54}{}%
+\contentsline {subsubsection}{\numberline {6.5.5}Euler-Level Momentum (order $\varepsilon $)}{54}{}%
+\contentsline {subsubsection}{\numberline {6.5.6}Viscous Stress and Exact Cancellation of the Guo Spurious Term (order $\varepsilon ^{2}$)}{54}{}%
+\contentsline {subsubsection}{\numberline {6.5.7}Recombination into the Macroscopic Navier--Stokes Equation}{56}{}%
+\contentsline {subsubsection}{\numberline {6.5.8}Closure: Identification of the Three Body Forces}{56}{}%
+\contentsline {subsubsection}{\numberline {6.5.9}Final Macroscopic System}{57}{}%
+\contentsline {subsubsection}{\numberline {6.5.10}Limiting Cases and Internal Consistency}{57}{}%
+\contentsline {subsubsection}{\numberline {6.5.11}Code-to-Equation Correspondence}{58}{}%
+\contentsline {subsection}{\numberline {6.6}Boundary Conditions}{59}{}%
+\contentsline {subsection}{\numberline {6.7}Algorithm Structure and Main Loop}{60}{}%
+\contentsline {subsection}{\numberline {6.8}Code Validation: 2D Poiseuille Flow}{62}{}%
+\contentsline {section}{\numberline {7}Darcy-Brinkman Regime and Permeability Validation}{64}{}%
+\contentsline {subsection}{\numberline {7.1}Guo Forcing Scheme and Kinematic Synchronization}{64}{}%
+\contentsline {subsection}{\numberline {7.2}Data Extraction and $K$ Recovery Methodology}{65}{}%
+\contentsline {subsection}{\numberline {7.3}Validation Results}{66}{}%
+\contentsline {section}{\numberline {8}Results}{68}{}%
