@@ -25,43 +25,62 @@
 \contentsline {subsubsection}{\numberline {4.2.1}Phase Saturation and the Extended Darcy's Law}{15}{}%
 \contentsline {subsubsection}{\numberline {4.2.2}Relative Permeability}{15}{}%
 \contentsline {subsubsection}{\numberline {4.2.3}Phase Mobility and the Mobility Ratio}{16}{}%
-\contentsline {subsection}{\numberline {4.3}Phase-Field Modeling: The Cahn-Hilliard Equation}{16}{}%
-\contentsline {subsubsection}{\numberline {4.3.1}Ginzburg-Landau Free-Energy Functional}{17}{}%
+\contentsline {subsection}{\numberline {4.3}Phase-Field Modeling: The Cahn-Hilliard Equation}{17}{}%
+\contentsline {subsubsection}{\numberline {4.3.1}Ginzburg-Landau Free-Energy Functional}{18}{}%
 \contentsline {subsubsection}{\numberline {4.3.2}Chemical Potential and the Cahn-Hilliard Equation}{18}{}%
-\contentsline {subsubsection}{\numberline {4.3.3}Equilibrium Profile and Interfacial Tension}{18}{}%
-\contentsline {subsubsection}{\numberline {4.3.4}Coupling to the Momentum Equation: Korteweg Stress}{19}{}%
+\contentsline {subsubsection}{\numberline {4.3.3}Equilibrium Profile and Interfacial Tension}{19}{}%
+\contentsline {subsubsection}{\numberline {4.3.4}Coupling to the Momentum Equation: Korteweg Stress}{20}{}%
 \contentsline {subsection}{\numberline {4.4}Magnetic Fluids: Fundamentals and Properties}{20}{}%
-\contentsline {subsection}{\numberline {4.5}The Kelvin Force and Effective Magnetic Pressure}{21}{}%
-\contentsline {section}{\numberline {5}Linear Stability Analysis of Interfaces in Porous Media}{24}{}%
-\contentsline {subsection}{\numberline {5.1}Development of the Kinematic Equation}{25}{}%
-\contentsline {subsection}{\numberline {5.2}Equilibrium Solution}{26}{}%
-\contentsline {subsection}{\numberline {5.3}Linearization of the Kinematic Equation}{26}{}%
-\contentsline {subsubsection}{\numberline {5.3.1}Velocity Potential Perturbation}{26}{}%
-\contentsline {subsubsection}{\numberline {5.3.2}Linearization of the Kinematic Condition}{27}{}%
-\contentsline {subsubsection}{\numberline {5.3.3}Application of the Kinematic Condition}{28}{}%
-\contentsline {subsection}{\numberline {5.4}Dynamic Boundary Condition for the Non-Magnetic Case}{29}{}%
-\contentsline {subsubsection}{\numberline {5.4.1}Analysis of the Real and Imaginary Parts}{30}{}%
-\contentsline {subsubsection}{\numberline {5.4.2}Nondimensionalization}{30}{}%
-\contentsline {subsubsection}{\numberline {5.4.3}Graphical analysis of the equation}{31}{}%
-\contentsline {subsection}{\numberline {5.5}Dynamic Boundary Condition for the Magnetic Case}{32}{}%
-\contentsline {subsubsection}{\numberline {5.5.1}Extended Darcy's Law and Pressure Jump}{33}{}%
-\contentsline {subsubsection}{\numberline {5.5.2}Magnetic Potential Continuity and Dispersion Relation}{34}{}%
-\contentsline {subsubsection}{\numberline {5.5.3}Generalized Nondimensionalization}{34}{}%
-\contentsline {section}{\numberline {6}Computational Methodology}{38}{}%
-\contentsline {subsection}{\numberline {6.1}Lattice Boltzmann Method and Solver Formulation}{38}{}%
-\contentsline {subsection}{\numberline {6.2}Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}{39}{}%
-\contentsline {subsubsection}{\numberline {6.2.1}Five-Point Isotropic Stencil}{39}{}%
-\contentsline {subsubsection}{\numberline {6.2.2}Boundary Conditions}{39}{}%
-\contentsline {subsubsection}{\numberline {6.2.3}Explicit Euler Update and Numerical Safeguards}{40}{}%
-\contentsline {subsubsection}{\numberline {6.2.4}Temporal Substepping and CFL Constraint}{41}{}%
-\contentsline {subsubsection}{\numberline {6.2.5}Parallelization and Coupling}{41}{}%
-\contentsline {subsection}{\numberline {6.3}External Forcing: Interfacial and Magnetic Couplings}{42}{}%
-\contentsline {subsection}{\numberline {6.4}Darcy Resistance and Kinematic Recovery (Guo Scheme)}{43}{}%
-\contentsline {subsection}{\numberline {6.5}Boundary Conditions}{43}{}%
-\contentsline {subsection}{\numberline {6.6}Algorithm Structure and Main Loop}{44}{}%
-\contentsline {subsection}{\numberline {6.7}Code Validation: 2D Poiseuille Flow}{44}{}%
-\contentsline {section}{\numberline {7}Darcy-Brinkman Regime and Permeability Validation}{46}{}%
-\contentsline {subsection}{\numberline {7.1}Guo Forcing Scheme and Kinematic Synchronization}{46}{}%
-\contentsline {subsection}{\numberline {7.2}Data Extraction and $K$ Recovery Methodology}{47}{}%
-\contentsline {subsection}{\numberline {7.3}Validation Results}{47}{}%
-\contentsline {section}{\numberline {8}Results}{50}{}%
+\contentsline {subsection}{\numberline {4.5}The Kelvin Force and Effective Magnetic Pressure}{22}{}%
+\contentsline {section}{\numberline {5}Linear Stability Analysis of Interfaces in Porous Media}{25}{}%
+\contentsline {subsection}{\numberline {5.1}Development of the Kinematic Equation}{26}{}%
+\contentsline {subsection}{\numberline {5.2}Equilibrium Solution}{27}{}%
+\contentsline {subsection}{\numberline {5.3}Linearization of the Kinematic Equation}{27}{}%
+\contentsline {subsubsection}{\numberline {5.3.1}Velocity Potential Perturbation}{27}{}%
+\contentsline {subsubsection}{\numberline {5.3.2}Linearization of the Kinematic Condition}{28}{}%
+\contentsline {subsubsection}{\numberline {5.3.3}Application of the Kinematic Condition}{29}{}%
+\contentsline {subsection}{\numberline {5.4}Dynamic Boundary Condition for the Non-Magnetic Case}{30}{}%
+\contentsline {subsubsection}{\numberline {5.4.1}Analysis of the Real and Imaginary Parts}{31}{}%
+\contentsline {subsubsection}{\numberline {5.4.2}Nondimensionalization}{31}{}%
+\contentsline {subsubsection}{\numberline {5.4.3}Graphical analysis of the equation}{32}{}%
+\contentsline {subsection}{\numberline {5.5}Dynamic Boundary Condition for the Magnetic Case}{33}{}%
+\contentsline {subsubsection}{\numberline {5.5.1}Extended Darcy's Law and Pressure Jump}{34}{}%
+\contentsline {subsubsection}{\numberline {5.5.2}Magnetic Potential Continuity and Dispersion Relation}{35}{}%
+\contentsline {subsubsection}{\numberline {5.5.3}Generalized Nondimensionalization}{35}{}%
+\contentsline {section}{\numberline {6}Computational Methodology}{39}{}%
+\contentsline {subsection}{\numberline {6.1}Lattice Boltzmann Method and Solver Formulation}{39}{}%
+\contentsline {subsection}{\numberline {6.2}Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}{40}{}%
+\contentsline {subsubsection}{\numberline {6.2.1}Five-Point Isotropic Stencil}{41}{}%
+\contentsline {subsubsection}{\numberline {6.2.2}Boundary Conditions}{41}{}%
+\contentsline {subsubsection}{\numberline {6.2.3}Explicit Euler Update and Numerical Safeguards}{42}{}%
+\contentsline {subsubsection}{\numberline {6.2.4}Temporal Substepping and the Biharmonic CFL Constraint via Von Neumann Analysis}{43}{}%
+\contentsline {paragraph}{Linearised model equation.}{43}{}%
+\contentsline {paragraph}{Spatial-temporal discretisation.}{43}{}%
+\contentsline {paragraph}{Insertion of the Fourier ansatz.}{44}{}%
+\contentsline {paragraph}{Stability condition.}{45}{}%
+\contentsline {paragraph}{Extension to two dimensions.}{45}{}%
+\contentsline {paragraph}{Physical manifestation of the instability.}{46}{}%
+\contentsline {paragraph}{Practical implementation in the code.}{46}{}%
+\contentsline {subsubsection}{\numberline {6.2.5}Parallelization and Coupling}{47}{}%
+\contentsline {subsection}{\numberline {6.3}External Forcing: Interfacial and Magnetic Couplings}{47}{}%
+\contentsline {subsection}{\numberline {6.4}Darcy Resistance and Kinematic Recovery (Guo Scheme)}{48}{}%
+\contentsline {subsection}{\numberline {6.5}Macroscopic Limit: Chapman--Enskog Recovery of the Darcy--Brinkman--Magnetic Navier--Stokes System}{49}{}%
+\contentsline {subsubsection}{\numberline {6.5.1}Setup: D2Q9 Isotropy and the Guo-Augmented BGK Equation}{50}{}%
+\contentsline {subsubsection}{\numberline {6.5.2}Macroscopic Moments and the Implicit Drag Inversion}{51}{}%
+\contentsline {subsubsection}{\numberline {6.5.3}The Multiscale Ansatz}{52}{}%
+\contentsline {subsubsection}{\numberline {6.5.4}Continuity}{52}{}%
+\contentsline {subsubsection}{\numberline {6.5.5}Euler-Level Momentum (order $\varepsilon $)}{53}{}%
+\contentsline {subsubsection}{\numberline {6.5.6}Viscous Stress and Exact Cancellation of the Guo Spurious Term (order $\varepsilon ^{2}$)}{53}{}%
+\contentsline {subsubsection}{\numberline {6.5.7}Recombination into the Macroscopic Navier--Stokes Equation}{54}{}%
+\contentsline {subsubsection}{\numberline {6.5.8}Closure: Identification of the Three Body Forces}{55}{}%
+\contentsline {subsubsection}{\numberline {6.5.9}Final Macroscopic System}{56}{}%
+\contentsline {subsubsection}{\numberline {6.5.10}Limiting Cases and Internal Consistency}{56}{}%
+\contentsline {subsubsection}{\numberline {6.5.11}Code-to-Equation Correspondence}{57}{}%
+\contentsline {subsection}{\numberline {6.6}Boundary Conditions}{57}{}%
+\contentsline {subsection}{\numberline {6.7}Algorithm Structure and Main Loop}{59}{}%
+\contentsline {subsection}{\numberline {6.8}Code Validation: 2D Poiseuille Flow}{61}{}%
+\contentsline {section}{\numberline {7}Darcy-Brinkman Regime and Permeability Validation}{62}{}%
+\contentsline {subsection}{\numberline {7.1}Guo Forcing Scheme and Kinematic Synchronization}{62}{}%
+\contentsline {subsection}{\numberline {7.2}Data Extraction and $K$ Recovery Methodology}{63}{}%
+\contentsline {subsection}{\numberline {7.3}Validation Results}{64}{}%
+\contentsline {section}{\numberline {8}Results}{66}{}%

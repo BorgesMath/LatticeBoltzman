@@ -243,6 +243,10 @@ To normalize the flow equations, the effective permeability is expressed as the 
 
 Unlike absolute permeability, $k_{r\alpha}$ is not solely a property of the rock. It is a highly non-linear, phenomenological function that depends primarily on the phase saturation ($k_{r\alpha} = f(S_\alpha)$), but also on the pore-size distribution, wettability of the solid matrix, and the flow history (hysteresis). The relative permeability accounts for the momentum dissipation at the fluid-fluid interfaces and the tortuous pathways forced upon one phase by the presence of the other.
 
+\textcolor{red}{[AUDITORIA --- na implementação real (\texttt{lbm.py:67--70}) a permeabilidade relativa adotada é a relação \emph{estritamente linear} $k_{r\alpha} = \max(S_\alpha, 10^{-6})$, sem histerese e sem dependência de molhabilidade. A descrição "altamente não-linear" descreve a literatura, não o que o código simula. Adicionar ressalva: ``In the present simulations a linear constitutive law $k_{r\alpha} = S_\alpha$ is adopted as a first-order approximation, sufficient for the linear stability regime examined here.'']}
+
+\textcolor{blue}{[ADICIONAR --- mencionar explicitamente a forma da mobilidade total usada no solver: $\lambda_{tot} = k_{r,inv}/\nu_{inv} + k_{r,res}/\nu_{res}$, que aparece em \texttt{lbm.py:69} e dá origem ao termo de arrasto bi-fásico $\sigma_{drag} = 1/(K\,\lambda_{tot})$ --- esse é o ponto de contato direto entre a teoria multifásica e o solver.]}
+
 Substituting into the extended Darcy's equation (neglecting gravity):
 \begin{equation}
     \mathbf{v}_\alpha = -\frac{K k_{r\alpha}}{\mu_\alpha} \nabla p_\alpha
@@ -322,9 +326,10 @@ whose physical solution is the hyperbolic-tangent profile
 \end{equation}
 where $W$ is the characteristic interface thickness. Integrating the gradient-energy density across the interface yields the effective interfacial tension associated with the diffuse-interface model:
 \begin{equation}
-    \sigma = \int_{-\infty}^{+\infty} \kappa \left(\frac{d\phi_{eq}}{dz}\right)^{\!2} dz = \frac{2\sqrt{2}}{3}\sqrt{\kappa\,\beta}.
+    \sigma = \int_{-\infty}^{+\infty} \kappa \left(\frac{d\phi_{eq}}{dz}\right)^{\!2} dz = \textcolor{red}{\frac{4\sqrt{2}}{3}\sqrt{\kappa\,\beta}}.
 \end{equation}
-Inverting these two algebraic identities permits independent calibration: given target physical values of $\sigma$ and $W$, the model parameters are recovered as $\beta = 3\sqrt{2}\,\sigma/(4W)$ and $\kappa = 3\sqrt{2}\,\sigma\,W/4$. This separation of the two macroscopic interface properties into two independent model parameters is one of the key reasons for choosing the Cahn-Hilliard formulation as the multiphase backbone in this work.
+\textcolor{red}{[AUDITORIA --- correção do coeficiente: a integral $\int_{-\infty}^{+\infty}\mathrm{sech}^4(u)\,du = 4/3$, portanto $\sigma = (4\sqrt{2}/3)\sqrt{\kappa\beta}$, não $(2\sqrt{2}/3)\sqrt{\kappa\beta}$. A versão escrita aqui originalmente discordava do código (\texttt{main.py:26--27}).]}
+Inverting these two algebraic identities permits independent calibration: given target physical values of $\sigma$ and $W$, the model parameters are recovered as \textcolor{red}{$\beta = 3\,\sigma/(8W)$ and $\kappa = 3\,\sigma\,W/4$}. \textcolor{red}{[AUDITORIA --- estas são exatamente as relações implementadas em \texttt{main.py:26--27}: \texttt{BETA = (3*SIGMA)/(8*INTERFACE\_WIDTH)} e \texttt{KAPPA = (3*SIGMA*INTERFACE\_WIDTH)/4}. A versão anterior do texto trazia fatores $\sqrt{2}$ espúrios.]} This separation of the two macroscopic interface properties into two independent model parameters is one of the key reasons for choosing the Cahn-Hilliard formulation as the multiphase backbone in this work.
 
 \subsubsection{Coupling to the Momentum Equation: Korteweg Stress}
 
@@ -409,6 +414,10 @@ Because both the thermodynamic pressure gradient and the Kelvin force are gradie
 \begin{equation}
     p^* = p - \frac{1}{2} \mu_0 \chi H^2 \implies \frac{\eta}{K} \mathbf{v} = -\nabla p^*
 \end{equation}
+
+\textcolor{red}{[AUDITORIA --- a fatoração $\mathbf{f}_m = \nabla(\tfrac{1}{2}\mu_0 \chi H^2)$ é válida apenas para $\chi$ \emph{uniforme} (caso de fase única magnetizável). No código implementado, $\chi$ é heterogêneo pois depende do parâmetro de fase ($\chi(\phi) = \tfrac{1}{2}(\phi+1)\,\chi_{\max}$, ver \texttt{main.py:74}); a forma efetiva da força aplicada em \texttt{lbm.py:48--49} é $\mathbf{F}_m = -\tfrac{1}{2}|\mathbf{H}|^2\,\nabla\chi$, que \emph{não} é o gradiente de um escalar e portanto não admite absorção em uma pressão efetiva. O texto acima deve ser apresentado como derivação de referência para fase única, e a forma de gradiente de $\chi$ deve ser introduzida ao discutir o acoplamento multifásico.]}
+
+\textcolor{blue}{[ADICIONAR --- subseção descrevendo o caso multifásico real: lei constitutiva $\chi(\phi)$ linear interpolada entre 0 (fase resistente, $\phi=-1$) e $\chi_{\max}$ (fase invasora, $\phi=+1$); decomposição $\mathbf{H} = \mathbf{H}_0 - \nabla\tilde{\psi}$ onde $\tilde{\psi}$ é o potencial de perturbação da magnetização; equação de Poisson resultante para $\tilde{\psi}$ com permeabilidade relativa $\mu_r(\phi) = 1 + \chi(\phi)$ e fonte $\mathbf{H}_0 \cdot \nabla\mu_r$.]}
 
 This fundamental mathematical arrangement demonstrates that the external magnetic field locally modulates the pressure field of the fluid. Furthermore, since the velocity vector $\mathbf{v}$ is strictly proportional to the gradient of this effective pressure ($p^*$), the velocity field remains irrotational. This property permits the mathematical definition of a velocity potential $\phi$ such that $\mathbf{v} = \nabla \phi$, fulfilling Laplace's equation in incompressible domains. The structural equivalence between the Kelvin force and a pressure drop establishes the theoretical mechanism by which the external magnetic field can be precisely manipulated to alter local velocity gradients at the interface, counteracting viscous fingering.
 

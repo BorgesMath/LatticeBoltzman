@@ -31,6 +31,9 @@ def _init_kernel(phi, f, psi, rho, u_x, ny, nx, mode_m, amplitude, interface_wid
 
 
 def initialize_fields(params):
+    """
+    inicializa os campos
+    """
     ny, nx = params["NY"], params["NX"]
     u_inlet = params["U_INLET"]
     x_center = 80.0

@@ -1,7 +1,9 @@
 \section{Computational Methodology}
 
 \subsection{Lattice Boltzmann Method and Solver Formulation}
-Unlike the Finite Volume Method (FVM), which discretizes the macroscopic Navier-Stokes equations and requires computationally expensive procedures to resolve pressure-velocity coupling, the Lattice Boltzmann Method (LBM) operates at the mesoscopic scale. It solves the discrete Boltzmann transport equation, recovering macroscopic hydrodynamics via the Chapman-Enskog expansion \cite{chen1998lattice}. This kinetic approach offers explicit time integration, exact linear advection, and local collision rules, making it highly efficient for handling the complex boundaries inherent to porous media. [FALAR DE PORQUE É BOM PARA ESSE CASO EM ESPECIFICO]
+Unlike the Finite Volume Method (FVM), which discretizes the macroscopic Navier-Stokes equations and requires computationally expensive procedures to resolve pressure-velocity coupling, the Lattice Boltzmann Method (LBM) operates at the mesoscopic scale. It solves the discrete Boltzmann transport equation, recovering macroscopic hydrodynamics via the Chapman-Enskog expansion \cite{chen1998lattice}. This kinetic approach offers explicit time integration, exact linear advection, and local collision rules, making it highly efficient for handling the complex boundaries inherent to porous media.
+
+The choice of LBM is particularly advantageous for the multi-physics problem addressed in this work, which couples viscous fingering, diffuse-interface phase-field thermodynamics, magnetostatic body forces, and Darcy--Brinkman resistance into a single simulation. Four properties of the method are decisive in this context. \emph{First}, the explicit two-step structure (local collision followed by linear streaming) keeps every operator local in space and avoids the global pressure-Poisson solve that dominates the runtime of incompressible Navier--Stokes codes; this is essential because each simulation traverses thousands of LBM steps with $N_{sub} \in [5,20]$ nested Cahn--Hilliard substeps, so a global linear solve per step would be prohibitive. \emph{Second}, body forces of any nature --- capillary, magnetic, or matrix drag --- can be injected through the Guo source term \cite{guo2002discrete} without altering the kernel itself; the Chapman--Enskog analysis of Section~\ref{sec:chapman-enskog} proves that the discrete scheme recovers the target macroscopic momentum equation to $\mathcal{O}(\Delta t^{2})$ for arbitrary combinations of these forces. \emph{Third}, the inclusion of the porous matrix is achieved at the level of the body force rather than through explicit obstacle geometry, so the same kernel transparently handles the free-flow ($K \to \infty$), Brinkman, and Darcy regimes as continuous limits of a single parameter, eliminating the ill-conditioned obstacle-resolution constraint that plagues pore-scale FVM simulations of low-permeability media. \emph{Fourth}, the embarrassingly parallel structure of collision and streaming maps naturally onto Numba-compiled \texttt{@njit(parallel=True)} loops over $y$-rows, producing throughput sufficient to span the full $(\sigma, \chi_{\max}, K_0, m)$ parameter space required by the linear-stability analysis presented in the linear stability analysis chapter.
 
 The spatial domain is discretized into a uniform global Cartesian mesh. The velocity space at each node is quantized using the D2Q9 lattice model, which defines nine discrete velocity vectors $\mathbf{c}_i$: one rest particle, four cardinal, and four diagonal directions \cite{qian1992lattice}. This specific lattice provides the necessary symmetry and isotropy to correctly recover the full Navier-Stokes stress tensor in two dimensions.
 
@@ -11,7 +13,15 @@ The evolution of the system is governed by the discrete Lattice Boltzmann equati
 \begin{equation}
     f_i(\mathbf{x} + \mathbf{c}_i \Delta t, t + \Delta t) = f_i(\mathbf{x}, t) - \frac{1}{\tau(\phi)} \left[ f_i(\mathbf{x}, t) - f_i^{eq}(\mathbf{x}, t) \right] + S_i \Delta t
 \end{equation}
-where $f_i$ are the density distribution functions, $\mathbf{c}_i$ are the discrete lattice velocities, and $\tau$ is the relaxation time. Computationally, $\tau$ is linearly interpolated across the fluid interface based on the local phase fraction $\phi$. This interpolation ensures a smooth transition of kinematic viscosity between the distinct fluid phases, avoiding numerical instabilities associated with sharp gradients.  [FALAR SE DA PARA RECUPERAR A EQUAÇÃO DE ESCOAMENTO EM MEIO POROSO COM UM FLUIDO MULTIFASICO]
+where $f_i$ are the density distribution functions, $\mathbf{c}_i$ are the discrete lattice velocities, and $\tau$ is the relaxation time. Computationally, $\tau$ is linearly interpolated across the fluid interface based on the local phase fraction $\phi$. This interpolation ensures a smooth transition of kinematic viscosity between the distinct fluid phases, avoiding numerical instabilities associated with sharp gradients.
+
+The recovery of the \emph{multiphase porous} momentum equation by this scheme is not a postulate but a derived property: by injecting into $S_i$ a total force that simultaneously contains the diffuse-interface Korteweg stress $\bm{F}_c = \mu_c \nabla \phi$, the Kelvin magnetic body force $\bm{F}_m = -\tfrac{1}{2}|\bm{H}|^{2}\nabla\chi$, and a phase-weighted Darcy--Brinkman drag $\bm{F}_d = -\rho\,\uph/(K\lambda_{\mathrm{tot}})$ with two-phase mobility $\lambda_{\mathrm{tot}} = k_r^{\mathrm{inv}}/\nu_{\mathrm{in}} + k_r^{\mathrm{res}}/\nu_{\mathrm{out}}$, the Chapman--Enskog multiscale expansion (Section~\ref{sec:chapman-enskog}, equation~\eqref{eq:ce-final-mom}) yields exactly the generalised momentum balance
+\begin{equation*}
+\rho\bigl(\partial_t \uph + \uph\!\cdot\!\nabla\uph\bigr) = -\nabla P + \mu(\phi)\,\nabla^{2}\uph + \mu_c\,\nabla\phi - \tfrac{1}{2}|\bm{H}|^{2}\nabla\chi - \frac{\rho}{K\,\lambda_{\mathrm{tot}}}\,\uph,
+\end{equation*}
+i.e.\ the two-phase Darcy--Brinkman--Navier--Stokes--Kelvin equation. The free-flow limit ($K\to\infty$), the single-phase Brinkman limit ($\phi \equiv \pm 1$), and the non-magnetic Saffman--Taylor limit ($\bm{H}_0 = \bm{0}$) all emerge as continuous parameter limits of the same kernel, without any change to the underlying algorithm.
+
+\textcolor{red}{[AUDITORIA --- ``$\tau$ linearly interpolated'' descreve apenas o caminho opcional do código (\texttt{lbm.py:59--61}, ativado quando \texttt{VISC\_LINEAR=True}). O caminho \emph{padrão} usado nas simulações (\texttt{lbm.py:62--64}) é a média \emph{harmônica} das viscosidades: $1/\nu_{eff} = S_{inv}/\nu_{inv} + S_{res}/\nu_{res}$, com $\tau = 3\nu_{eff} + 1/2$ recuperado em seguida. A média harmônica é a escolha correta para preservar a continuidade do tensor de tensões na interface entre dois fluidos com viscosidades muito distintas.]}
 
 \subsection{Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}
 
@@ -37,7 +47,7 @@ The boundary treatment of the order parameter is fully consistent with the bound
 \end{itemize}
 For fully periodic configurations (e.g.\ spatially periodic linear-stability test cases), both $x$-boundaries are treated periodically through modular indexing, identical to the $y$ treatment.
 
-\subsubsection{Explicit Euler Update and Numerical Safeguards}
+\subsubsection{Explicit Euler Update and Numerical Safeguards}\label{sec:cahnhilliard-update}
 After the chemical potential field has been finalised, the order parameter is advanced through an explicit first-order Euler scheme:
 \begin{equation}
     \phi^{n+1}(y, x) = \phi^n(y, x) + \Delta t_{CH}\left[ M\,\nabla^2 \mu_c - \left(u_x\,\partial_x \phi + u_y\,\partial_y \phi\right) \right].
@@ -46,12 +56,89 @@ The velocity field $(u_x, u_y)$ here is the physical velocity recovered from the
 
 The update is implemented through a double-buffer pattern (\texttt{phi\_in}, \texttt{phi\_out}) so that the right-hand side at each grid point is evaluated using the field $\phi^n$ everywhere, never with partially updated values from earlier in the sweep. The buffer pointers are swapped externally between substeps, avoiding any in-place memory hazard.
 
-\subsubsection{Temporal Substepping and CFL Constraint}
-The Cahn-Hilliard equation is fourth-order in space, so the explicit-Euler stability bound scales as $(\Delta x)^4$:
+\subsubsection{Temporal Substepping and the Biharmonic CFL Constraint via Von Neumann Analysis}
+
+Because the Cahn-Hilliard equation is fourth-order in space, the explicit Euler scheme adopted in the previous paragraph is subject to a far more restrictive stability bound than the convective CFL of the LBM kernel ($\Delta t_{LBM} \lesssim \Delta x / c_s$). Rather than postulating this restriction empirically, we derive it from a rigorous Von Neumann (discrete Fourier) stability analysis applied to the stiffness-dominating fourth-derivative term. The same calculation simultaneously identifies the most numerically dangerous wave mode, fixes the safety factor used in the code, and explains \emph{quantitatively} why the substepping ratio $N_{sub}$ must be chosen as it is.
+
+\paragraph{Linearised model equation.} The advective Cahn-Hilliard equation contains three structurally distinct terms: the advection $\mathbf{u}\!\cdot\!\nabla\phi$, the non-linear chemical-potential reaction $4\beta\,\phi(\phi^2-1)$, and the biharmonic relaxation $-M\kappa\,\nabla^4\phi$. The first two terms produce bounded contributions to the amplification factor: advection is convectively stable for any centred-difference Euler integrator provided $|\mathbf{u}|\,\Delta t/\Delta x \leq 1$ (the classical hyperbolic CFL), while the reaction term contributes an $\mathcal{O}(\Delta t)$ correction that is dominated by the biharmonic in the asymptotic regime $\Delta x \to 0$. The genuinely \emph{stiff} contribution --- the one which forces the substepping --- is the fourth-derivative diffusion. Isolating it in one spatial dimension yields the linearised model PDE
 \begin{equation}
-    \Delta t_{CH} \lesssim \frac{(\Delta x)^4}{4\,M\,\kappa},
+    \frac{\partial \phi}{\partial t} = -M\kappa\,\frac{\partial^4 \phi}{\partial x^4},
 \end{equation}
-which is considerably more restrictive than the convective CFL of the LBM kernel ($\Delta t_{LBM} \lesssim \Delta x / c_s$). To preserve the natural unit time step of the LBM while honouring the Cahn-Hilliard stability bound, the solver is invoked $N_{sub}$ times per LBM step, with reduced substep $\Delta t_{CH} = \Delta t_{LBM} / N_{sub}$. The number of substeps is chosen at runtime such that the diffusive CFL is satisfied with a safety margin, conventionally targeting $M\,\kappa\,\Delta t_{CH} / (\Delta x)^4 \leq 0.1$. For the simulations presented in this work, typical values fall in the range $N_{sub} \in [5, 20]$, with larger values required when $\sigma$ (and therefore the product $\kappa\beta$) is increased to suppress numerical mixing at high mobility ratio.
+which is itself the linearised image of $\partial_t\phi = M\,\nabla^2\mu_c$ around a uniform reference state, with $\mu_c \approx -\kappa\,\nabla^2\phi$ as the dominant contribution to the chemical potential at short wavelengths.
+
+\paragraph{Spatial-temporal discretisation.} Applying explicit Euler in time and central finite differences in space, and composing the five-point Laplacian stencil with itself, the discrete biharmonic operator at node $j$ reads
+\begin{equation}
+    \left(\frac{\partial^4 \phi}{\partial x^4}\right)_j \approx \frac{1}{(\Delta x)^4}\left( \phi_{j+2}^n - 4\phi_{j+1}^n + 6\phi_j^n - 4\phi_{j-1}^n + \phi_{j-2}^n \right),
+\end{equation}
+so the explicit update at grid node $j$ and time level $n$ is
+\begin{equation}
+    \phi_j^{n+1} = \phi_j^n - \frac{M\kappa\,\Delta t}{(\Delta x)^4}\left( \phi_{j+2}^n - 4\phi_{j+1}^n + 6\phi_j^n - 4\phi_{j-1}^n + \phi_{j-2}^n \right).
+\end{equation}
+For algebraic compactness we introduce the dimensionless biharmonic Fourier number
+\begin{equation}
+    r \;\equiv\; \frac{M\,\kappa\,\Delta t}{(\Delta x)^4}.
+\end{equation}
+
+\paragraph{Insertion of the Fourier ansatz.} Following Von Neumann, we exploit the linearity of the scheme: any numerical error obeys the same recurrence as $\phi$ itself. We decompose the error into a discrete Fourier series and analyse a single harmonic mode of spatial wavenumber $k$,
+\begin{equation}
+    \epsilon_j^n = E^n\,e^{i\,k\,x_j}, \qquad x_j = j\,\Delta x,
+\end{equation}
+where $E^n$ is the (complex) amplitude at time level $n$ and $i = \sqrt{-1}$. Substituting into the discrete update and dividing through by $E^n e^{ikx_j}$:
+\begin{equation}
+    G(k) \;\equiv\; \frac{E^{n+1}}{E^n} = 1 - r\left[\, e^{i\,2k\Delta x} - 4 e^{i\,k\Delta x} + 6 - 4 e^{-i\,k\Delta x} + e^{-i\,2k\Delta x}\,\right].
+\end{equation}
+Collecting conjugate pairs through Euler's identity $e^{i\theta} + e^{-i\theta} = 2\cos\theta$,
+\begin{equation}
+    G(k) = 1 - r\bigl[\,2\cos(2k\Delta x) - 8\cos(k\Delta x) + 6\,\bigr].
+\end{equation}
+The bracketed expression is precisely the spectral symbol of the discrete biharmonic operator. Applying the half-angle identity $1 - \cos\theta = 2\sin^2(\theta/2)$ twice (once to each cosine) and using $\cos(2\theta) = 1 - 2\sin^2\theta$,
+\begin{align}
+    2\cos(2k\Delta x) - 8\cos(k\Delta x) + 6
+    &= 2\bigl[1 - 2\sin^2(k\Delta x)\bigr] - 8\cos(k\Delta x) + 6 \nonumber \\
+    &= 8 - 4\sin^2(k\Delta x) - 8\cos(k\Delta x) \nonumber \\
+    &= 8\bigl[1 - \cos(k\Delta x)\bigr] - 4\sin^2(k\Delta x) \nonumber \\
+    &= 16\sin^2(k\Delta x/2) - 16\sin^2(k\Delta x/2)\cos^2(k\Delta x/2) \nonumber \\
+    &= 16\sin^4(k\Delta x/2).
+\end{align}
+We thus arrive at the compact closed-form amplification factor of the explicit biharmonic stencil:
+\begin{equation}
+    \boxed{\;G(k) = 1 - 16\,r\,\sin^4\!\!\left(\frac{k\,\Delta x}{2}\right)\;}
+\end{equation}
+
+\paragraph{Stability condition.} The Lax-Richtmyer equivalence theorem requires that, for the consistent scheme to converge, no Fourier mode may be amplified, i.e.\ $|G(k)| \leq 1$ for every admissible wavenumber $k$. Since $r > 0$ and $\sin^4(\cdot)$ is non-negative, $G(k) \leq 1$ trivially. The non-trivial inequality is $G(k) \geq -1$:
+\begin{equation}
+    16\,r\,\sin^4\!\!\left(\frac{k\,\Delta x}{2}\right) \leq 2.
+\end{equation}
+The discrete grid admits wavenumbers in the Nyquist-limited range $k\Delta x \in [0, \pi]$. The amplification is monotonic in $\sin^4(k\Delta x/2)$ and therefore extremised at the highest representable wavenumber, the \emph{Nyquist mode} $k\Delta x = \pi$ (wavelength $\lambda = 2\Delta x$, the saw-tooth oscillation between adjacent grid points), where $\sin^4(\pi/2) = 1$. Imposing the bound on this worst-case mode:
+\begin{equation}
+    16\,r \leq 2 \;\Longleftrightarrow\; r \leq \tfrac{1}{8}.
+\end{equation}
+Returning to dimensional variables, the absolute one-dimensional stability bound of the explicit biharmonic stencil reads
+\begin{equation}
+    \boxed{\;\Delta t_{CH} \leq \frac{(\Delta x)^4}{8\,M\,\kappa} \quad \text{(1D)}\;}
+\end{equation}
+
+\paragraph{Extension to two dimensions.} In the isotropic 2D Cartesian implementation of the present work, the chemical potential field $\mu_c$ is itself constructed from a five-point Laplacian, and the divergence of the diffusive flux $M\,\nabla^2\mu_c$ folds a second five-point stencil on top. The resulting compound operator contains pure derivatives $\partial^4_x$, $\partial^4_y$ \emph{and} mixed $\partial^2_x\partial^2_y$ contributions. Applying the same Von Neumann ansatz $\epsilon = E\,e^{i(k_x x + k_y y)}$ to the 2D scheme yields the amplification factor
+\begin{equation}
+    G_{2D}(k_x, k_y) = 1 - 16\,r\left[\sin^4\!\!\left(\frac{k_x\Delta x}{2}\right) + \sin^4\!\!\left(\frac{k_y\Delta y}{2}\right) + 2\sin^2\!\!\left(\frac{k_x\Delta x}{2}\right)\sin^2\!\!\left(\frac{k_y\Delta y}{2}\right)\right].
+\end{equation}
+On an isotropic grid ($\Delta x = \Delta y$), the worst-case mode is the corner Nyquist $(k_x, k_y) = (\pi/\Delta x, \pi/\Delta x)$, for which each $\sin^4$ term equals unity and the mixed product also equals unity, so the bracket reaches its maximum value of $4$. The stability condition $16r\cdot 4 \leq 2$ tightens the bound by a factor of four:
+\begin{equation}
+    \boxed{\;\Delta t_{CH} \leq \frac{(\Delta x)^4}{32\,M\,\kappa} \quad \text{(2D, isotropic)}\;}
+\end{equation}
+This factor-of-four tightening relative to the 1D estimate is precisely why a naive single-step Cahn-Hilliard update embedded inside the LBM cycle fails catastrophically for the parameter combinations used in this work --- and why the substepping strategy is not optional but structurally required.
+
+\paragraph{Physical manifestation of the instability.} For a given $r$, suppose the bound is violated such that $G(\pi/\Delta x) = -1 - \delta$ with $\delta > 0$ (e.g.\ $G = -1.5$ when $r$ is approximately $25\%$ above the critical value). The recurrence $E^{n+1} = G\,E^n$ then generates the sequence
+\begin{equation}
+    E^1 = -1.5\,E^0, \quad E^2 = +2.25\,E^0, \quad E^3 = -3.375\,E^0, \quad \ldots
+\end{equation}
+The two-fold signature of biharmonic instability is therefore unmistakable in practice: (i) the unstable mode is the shortest representable wavelength ($\lambda = 2\Delta x$), so the divergent signal manifests as a checkerboard pattern alternating between adjacent grid nodes, and (ii) because $G < 0$, the amplitude oscillates in sign between successive time levels --- the field flips $\pm$ at each step while its magnitude grows geometrically. Quartic over-shoots beyond $|\phi| > 1$ trigger the bulk term $4\beta\phi(\phi^2-1)$ in $\mu_c$ to invert direction (its derivative changes sign for $|\phi| > 1/\sqrt{3}$), at which point the thermodynamic restoring force becomes catastrophically destabilising. The $\phi \in [-1,+1]$ clamp introduced in Sec.~\ref{sec:cahnhilliard-update} would then mask the blow-up locally but pollute the global mass balance; the substepping is the principled cure that prevents the instability from being triggered in the first place.
+
+\paragraph{Practical implementation in the code.} The runtime selection of $N_{sub}$ implements the 2D stability bound with a conservative safety margin. Targeting $r_{eff} \equiv M\,\kappa\,\Delta t_{CH}/(\Delta x)^4 \leq 1/32 \times \mathcal{S}$ (with safety factor $\mathcal{S} \approx 0.8$, equivalent to operating at $80\%$ of the analytical limit), and recalling that $\Delta t_{CH} = \Delta t_{LBM}/N_{sub} = 1/N_{sub}$ in lattice units,
+\begin{equation}
+    N_{sub} \;\geq\; \left\lceil \frac{32\,M\,\kappa}{\mathcal{S}\,(\Delta x)^4} \right\rceil.
+\end{equation}
+For the simulations presented in this work --- where $\kappa$ scales linearly with $\sigma\,W$ through the calibration $\kappa = 3\sigma W/4$ and the mobility $M$ is fixed to balance the Péclet number of the interface --- this prescription yields typical values $N_{sub} \in [5, 20]$, with the upper end of the range required for high interfacial tension ($\sigma \to \sigma_{max}$) and/or thick interfaces ($W \to W_{max}$). Larger $N_{sub}$ improves the conditioning of the explicit Euler integrator at the cost of a proportional increase in serial computational work per LBM step; the trade-off is acceptable because each substep is itself trivially parallelised through Numba's \texttt{prange} and operates on the same compact five-point stencil, so the marginal cost of doubling $N_{sub}$ is essentially the bandwidth of two extra five-point sweeps per LBM iteration.
 
 \subsubsection{Parallelization and Coupling}
 The substep routine is compiled by Numba with \texttt{@njit(parallel=True, cache=True)}, and the outer loop over transverse rows ($y$) is parallelised using \texttt{prange}. Because the five-point stencil is local and the temporal update writes only to \texttt{phi\_out}, there are no inter-row data dependencies and the parallel reduction is embarrassingly parallel. The chemical-potential computation and the temporal update are kept in separate parallel passes because the second pass reads $\mu_c$ at the four nearest neighbours and therefore requires the $\mu_c$ field to be fully populated across all rows before any value of $\phi^{n+1}$ is computed. This two-phase structure is the algorithmic image of the second-order operator splitting of the original fourth-order equation.
@@ -70,24 +157,297 @@ The magnetic  force (Kelvin force) arises from heterogeneities in the magnetic s
 \begin{equation}
     \mathbf{F}_m = \chi \left( \frac{\partial \psi}{\partial x} \nabla \frac{\partial \psi}{\partial x} + \frac{\partial \psi}{\partial y} \nabla \frac{\partial \psi}{\partial y} \right)
 \end{equation}
+
+\textcolor{red}{[AUDITORIA --- a expressão acima \emph{não corresponde} ao que está implementado. Em \texttt{lbm.py:36--49} o código (i) reconstrói o campo total de Maxwell $\mathbf{H} = \mathbf{H}_0 - \nabla\tilde{\psi}$, (ii) calcula $|\mathbf{H}|^2 = H_x^2 + H_y^2$, (iii) aplica $\mathbf{F}_m = -\tfrac{1}{2}|\mathbf{H}|^2\,\nabla\chi$. Essa é a forma de \emph{gradiente da suscetibilidade} (Kelvin para $\chi$ heterogêneo), não uma decomposição tensorial de $\nabla\nabla\psi$. Reescrever a equação como $\mathbf{F}_m = -\tfrac{1}{2}\,|\mathbf{H}|^2\,\nabla\chi(\phi)$ e explicar fisicamente: a força localiza-se na interface (onde $\nabla\chi \neq 0$) e aponta no sentido em que o gradiente de campo magnético reduz a energia magnetostática.]}
+
 All spatial derivatives and Laplacians required to compute these interfacial and magnetic forces are evaluated using 9-point isotropic finite difference schemes. This approach mitigates the intrinsic geometric anisotropy of the Cartesian grid and improves numerical stability near moving interfaces.
-[CITAR E EXPLICAR A FORÇA DE KELVIN DE ACORDO COM ARTIGO DE FRANSCICO RICARDO DA CUNHA E RAFAEL GABLER CONTIJO. O CASO DESSES ARTIGOS DELE USA O POTENCIAL MAGNETICO TBM?.  EXPLIQUE MELHOR PORQUE ESSE METODO REDUZ OS ERROS DE TRUNCAMENTO E POR QUE MITIGA A ANISOTROPIA DA GRID]
+
+\textcolor{red}{[AUDITORIA --- ``9-point isotropic'': não verídico. Tanto \texttt{lbm.py:30} quanto \texttt{cahn\_hilliard.py:27--28} usam o \emph{stencil padrão de 5 pontos} para o Laplaciano e \emph{diferenças centradas de 3 pontos} para os gradientes (\texttt{lbm.py:28--29, 41--42}). Trocar ``9-point isotropic'' por ``standard five-point Laplacian and second-order centred differences''. Caso se deseje de fato suprimir correntes espúrias, a migração para o stencil isotrópico de 9 pontos é um trabalho futuro.]}
+The Kelvin body force adopted here belongs to the family of magnetostatic stresses derived from the Maxwell stress tensor $T_{ij}^{M} = \mu_0\,H_i H_j - \tfrac{1}{2}\mu_0|\bm{H}|^{2}\delta_{ij}$, whose divergence reduces, for a linear magnetisable medium with susceptibility $\chi(\bm{x})$ and in the absence of free currents, to $\bm{f}_m = -\tfrac{1}{2}\mu_0|\bm{H}|^{2}\nabla\chi$ \cite{rosensweig1985ferrohydrodynamics}. This is the form adopted in the simulation framework of Gontijo and Cunha \cite{gontijo_cunha_review} for ferrofluid hydrodynamics in the linear-response regime, where the susceptibility is computed from a constitutive law (here $\chi(\phi) = \chi_{\max}(\phi+1)/2$) and the magnetic field itself is reconstructed from the scalar magnetic potential via $\bm{H} = \bm{H}_0 - \nabla\tilde{\psi}$, with $\tilde{\psi}$ obtained by solving the generalised Poisson equation $\divg[\mu_r(\phi)\nabla\tilde{\psi}] = \bm{H}_0\!\cdot\!\nabla\mu_r$. The use of a scalar potential (as opposed to a direct integration of $\bm{H}$) is the same strategy employed in the references cited above: it reduces a vector boundary-value problem to a single scalar elliptic equation that can be solved by standard relaxation methods (Gauss--Seidel SOR in our implementation), and automatically enforces the constraint $\nabla\times\bm{H} = \bm{0}$ at the discrete level.
+
+The truncation-error advantage of computing $\bm{F}_m$ from a converged potential field rather than from a directly tabulated $\bm{H}(\bm{x},t)$ is twofold. \emph{(i) Order-of-accuracy preservation:} differentiating $\tilde{\psi}$ once with second-order central differences yields $\bm{H}$ to leading order $\mathcal{O}(\Delta x^{2})$, and the subsequent gradient $\nabla\chi$ is also second-order accurate; the product structure $|\bm{H}|^{2}\nabla\chi$ therefore inherits second-order accuracy globally, matching the spatial order of the LBM kernel. Computing $\bm{F}_m$ directly from a finite-difference Maxwell-stress divergence would require a second derivative of $\bm{H}$ and degrade to first-order accuracy near the interface. \emph{(ii) Energy consistency:} because $\tilde{\psi}$ is the minimiser of the discrete magnetostatic energy $\mathcal{E}[\tilde{\psi}] = \tfrac{1}{2}\int \mu_r |\bm{H}|^{2}$, the force derived from it is automatically the discrete gradient of $\mathcal{E}$ with respect to interface displacements, preserving the variational structure of the continuum problem and eliminating the spurious tangential force components that plague non-variational discretisations of the Kelvin stress.
+
+The mitigation of grid anisotropy stems from the same variational origin: in the present scheme, all spatial derivatives of $\tilde{\psi}$ are computed with the standard isotropic five-point Laplacian and second-order centred gradients, which on a square lattice produce a leading-order anisotropy of $\mathcal{O}(\Delta x^{2}\,|\partial^{4}\tilde{\psi}|)$. Because $\tilde{\psi}$ is harmonic in each pure phase (the source $\bm{H}_0\!\cdot\!\nabla\chi$ is supported only on the diffuse interface), $|\partial^{4}\tilde{\psi}|$ is small away from the interface, and the residual anisotropy is concentrated in the narrow band where $\nabla\chi \neq \bm{0}$. Conversely, when working with a tensorial decomposition based on $\nabla\nabla\tilde{\psi}$, the mixed second-derivative term $\partial_{xy}\tilde{\psi}$ inherits the strongest anisotropy of the centred stencil, and the cumulative error grows linearly with the number of iterations. The form $\bm{F}_m = -\tfrac{1}{2}|\bm{H}|^{2}\nabla\chi$ adopted in \texttt{lbm.py} avoids this pathology and is the recommended choice for diffuse-interface magnetic flows in lattice-based codes \cite{gontijo_cunha_review}.
 
 
 \subsection{Darcy Resistance and Kinematic Recovery (Guo Scheme)}
 To incorporate the Darcy-Brinkman resistance tensor representing a porous medium with permeability $K$, the physical fluid velocity $\mathbf{u}_{phys}$ must be decoupled from the raw first-order statistical moment. The implementation adopts the Guo forcing scheme \cite{guo2002discrete}, which implicitly recovers the true physical velocity by analytically solving for the drag parameter $\sigma = \nu/K$:
+
+\textcolor{blue}{[ADICIONAR --- a forma $\sigma = \nu/K$ é a versão mono-fásica. Em \texttt{lbm.py:67--70} o código generaliza para duas fases via mobilidade total: $\sigma_{drag} = 1/(K\,\lambda_{tot})$, onde $\lambda_{tot} = k_{r,inv}/\nu_{inv} + k_{r,res}/\nu_{res}$ com $k_{r,\alpha} = \max(S_\alpha, 10^{-6})$. Esse $\sigma_{drag}$ é exatamente o termo que aparece no denominador da recuperação cinemática $\mathbf{u}_{phys} = \mathbf{u}^*/(1 + \tfrac{\Delta t}{2}\sigma_{drag})$ e no forçamento total $\mathbf{F}_{total} = \mathbf{F}_{ext} - \sigma_{drag}\rho\mathbf{u}_{phys}$.]}
 \begin{equation}
     \mathbf{u}_{phys} = \frac{\sum f_i \mathbf{c}_i + \frac{\Delta t}{2} (\mathbf{F}_s + \mathbf{F}_m)}{1 + \frac{\Delta t}{2} \sigma}
 \end{equation}
 Consequently, the effective total force used to compute the discrete source term $S_i$ in the evolution equation is dynamically adjusted by subtracting the viscous pressure drop induced by the solid matrix: $\mathbf{F}_{total} = (\mathbf{F}_s + \mathbf{F}_m) - \sigma \rho \mathbf{u}_{phys}$.
 
+\subsection{Macroscopic Limit: Chapman--Enskog Recovery of the Darcy--Brinkman--Magnetic Navier--Stokes System}\label{sec:chapman-enskog}
+
+The discrete kernel formulated above evolves nine mesoscopic populations on a uniform Cartesian lattice; the macroscopic equations that the solver is intended to approximate must therefore be \emph{derived} as the hydrodynamic limit of those populations, not merely postulated. This subsection performs that derivation in full. Starting from the Guo-augmented BGK equation, the Chapman--Enskog multiscale expansion is applied order by order, and the resulting macroscopic system is identified with the coupled Darcy--Brinkman--Magnetic Navier--Stokes--Cahn--Hilliard--Poisson model targeted by the implementation. The derivation simultaneously justifies (i) the $(1-\omega/2)$ prefactor of the Guo source term, (ii) the implicit kinematic inversion $\uph = \uph^{\star}/(1+\tfrac{1}{2}\sigd)$ visible in \texttt{lbm.py:84--85}, (iii) the explicit form of the viscosity $\nu = c_s^{2}(\tau-1/2)$, and (iv) the unique decomposition $\Ftot = \Fcap + \Fmag + \Fdrag$ injected into the collision step.
+
+\subsubsection{Setup: D2Q9 Isotropy and the Guo-Augmented BGK Equation}\label{sec:ce-setup}
+
+The D2Q9 lattice carries weights $w_i$ and discrete velocities $\bm{c}_i$ satisfying the isotropy relations
+\begin{equation}
+\sum_i w_i = 1,\qquad \sum_i w_i\,\bm{c}_i = \bm{0},\qquad \sum_i w_i\,c_{i\alpha}c_{i\beta} = \cs^{2}\,\delta_{\alpha\beta},\qquad \sum_i w_i\,c_{i\alpha}c_{i\beta}c_{i\gamma} = 0,
+\label{eq:ce-iso23}
+\end{equation}
+\begin{equation}
+\sum_i w_i\,c_{i\alpha}c_{i\beta}c_{i\gamma}c_{i\delta} = \cs^{4}\,\bigl(\delta_{\alpha\beta}\delta_{\gamma\delta} + \delta_{\alpha\gamma}\delta_{\beta\delta} + \delta_{\alpha\delta}\delta_{\beta\gamma}\bigr),
+\label{eq:ce-iso4}
+\end{equation}
+with $\cs^{2} = 1/3$ in lattice units. These relations are what guarantee that the second-order Hermite expansion of the Maxwell--Boltzmann equilibrium correctly recovers the full Navier--Stokes stress tensor in two dimensions \cite{chen1998lattice}. The discrete evolution rule implemented in \texttt{lbm.py} reads
+\begin{equation}
+f_i(\bm{x} + \bm{c}_i\,\dt,\,t + \dt) - f_i(\bm{x}, t) = -\omega\,\bigl[f_i(\bm{x}, t) - f_i^{\mathrm{eq}}(\bm{x}, t)\bigr] + \dt\,S_i(\bm{x}, t),
+\label{eq:ce-lbm}
+\end{equation}
+with relaxation frequency $\omega \equiv \dt/\tau \in (0, 2)$, equilibrium
+\begin{equation}
+f_i^{\mathrm{eq}} = w_i\,\rho\!\left[\,1 + \frac{\bm{c}_i\!\cdot\!\uph}{\cs^{2}} + \frac{(\bm{c}_i\!\cdot\!\uph)^{2}}{2\cs^{4}} - \frac{|\uph|^{2}}{2\cs^{2}}\,\right],
+\label{eq:ce-feq}
+\end{equation}
+and Guo source term \cite{guo2002discrete}
+\begin{equation}
+S_i = w_i\!\left(1 - \frac{\omega}{2}\right)\!\left[\frac{\bm{c}_i - \uph}{\cs^{2}} + \frac{(\bm{c}_i\!\cdot\!\uph)\,\bm{c}_i}{\cs^{4}}\right]\!\cdot\!\Ftot.
+\label{eq:ce-Si}
+\end{equation}
+The prefactor $(1 - \omega/2)$ in~\eqref{eq:ce-Si} is the unique choice that eliminates the spurious $\mathcal{O}(\dt^{2})$ deviatoric stress that body forces would otherwise generate; this assertion is proved \emph{a posteriori} by the explicit cancellation in~\eqref{eq:ce-Pi1-A}--\eqref{eq:ce-Pi1-B}. The first two velocity moments of the source are
+\begin{equation}
+\sum_i S_i = 0,\qquad \sum_i S_i\,\bm{c}_i = \left(1 - \frac{\omega}{2}\right)\Ftot,
+\label{eq:ce-Smom}
+\end{equation}
+by direct evaluation using~\eqref{eq:ce-iso23}.
+
+\subsubsection{Macroscopic Moments and the Implicit Drag Inversion}\label{sec:ce-moments}
+
+Mass conservation fixes $\rho = \sum_i f_i$ unambiguously. For schemes that inject momentum through a source $S_i$, the \emph{physical} fluid velocity acquires a half-time-step shift:
+\begin{equation}
+\rho\,\uph = \sum_i f_i\,\bm{c}_i + \frac{\dt}{2}\,\Ftot.
+\label{eq:ce-rhou}
+\end{equation}
+Equation~\eqref{eq:ce-rhou} is a \emph{definition} of $\uph$: it is the specific combination that --- as shown in Section~\ref{sec:ce-viscous} --- makes the recovered macroscopic momentum equation match Navier--Stokes with viscosity $\nu = \cs^{2}(\tau-1/2)\,\dt$, free of $\mathcal{O}(\dt)$ artefacts.
+
+In the present solver, the total force injected into the collision contains the physical external forces $\Fext = \Fcap + \Fmag$ \emph{and} the Darcy--Brinkman drag,
+\begin{equation}
+\Fdrag = -\sigd\,\rho\,\uph,\qquad \sigd \equiv \frac{1}{K\,\lambda_{\mathrm{tot}}},\qquad \lambda_{\mathrm{tot}} = \frac{k_r^{\mathrm{inv}}}{\nu_{\mathrm{in}}} + \frac{k_r^{\mathrm{res}}}{\nu_{\mathrm{out}}},
+\label{eq:ce-darcy}
+\end{equation}
+where $K$ is the local intrinsic permeability and $k_r^{(j)}$ the relative permeability of phase $j$, clamped from below by $10^{-6}$ to avoid singular denominators in pure regions (\texttt{lbm.py:67}). The total force is therefore
+\begin{equation}
+\Ftot = \Fext - \sigd\,\rho\,\uph,
+\label{eq:ce-Ftot}
+\end{equation}
+which renders~\eqref{eq:ce-rhou} \emph{implicit} in $\uph$. Solving algebraically,
+\begin{equation}
+\rho\,\uph\!\left(1 + \tfrac{\dt}{2}\sigd\right) = \sum_i f_i\,\bm{c}_i + \tfrac{\dt}{2}\,\Fext,
+\end{equation}
+yielding the closed-form inversion
+\begin{equation}
+\boxed{\;\uph = \frac{\uph^{\star}}{1 + \tfrac{1}{2}\sigd},\qquad \uph^{\star} \equiv \frac{1}{\rho}\!\left(\sum_i f_i\,\bm{c}_i + \tfrac{\dt}{2}\,\Fext\right)\;}
+\label{eq:ce-uphys}
+\end{equation}
+in lattice units ($\dt = 1$). This is exactly the operation performed at \texttt{lbm.py:84--85}. The closed-form inversion is essential for stability when $\sigd\,\dt/2 \gtrsim 1$ (low-permeability regimes), where an explicit treatment would impose the unphysical CFL constraint $\sigd\,\dt < 2$.
+
+Combining~\eqref{eq:ce-rhou} with the standard fact that $\sum_i f_i^{\mathrm{eq}}\bm{c}_i = \rho\,\uph$, we obtain the shifted constraints on the non-equilibrium populations,
+\begin{equation}
+\sum_i f_i^{(k)} = 0\ \text{for all $k \geq 1$},\qquad \sum_i f_i^{(1)}\,\bm{c}_i = -\frac{\dt}{2}\,\Ftot,\qquad \sum_i f_i^{(k)}\,\bm{c}_i = 0\ \text{for $k \geq 2$},
+\label{eq:ce-fkmom}
+\end{equation}
+which will be instrumental in cancelling the spurious force-velocity tensor in the viscous stress.
+
+\subsubsection{The Multiscale Ansatz}\label{sec:ce-multiscale}
+
+Expanding the streaming side of~\eqref{eq:ce-lbm} as a Taylor series in $\dt$,
+\begin{equation}
+\dt\,D_i\,f_i + \frac{\dt^{2}}{2}\,D_i^{2}\,f_i + \mathcal{O}(\dt^{3}) = -\omega\,(f_i - f_i^{\mathrm{eq}}) + \dt\,S_i,\qquad D_i \equiv \partial_t + \bm{c}_i\!\cdot\!\nabla.
+\label{eq:ce-taylor}
+\end{equation}
+Introducing a formal smallness parameter $\varepsilon$ (the Knudsen number) and the standard ans\"atze
+\begin{align}
+f_i &= f_i^{(0)} + \varepsilon\,f_i^{(1)} + \varepsilon^{2}\,f_i^{(2)} + \cdots,\qquad f_i^{(0)} \equiv f_i^{\mathrm{eq}},\\
+\partial_t &= \varepsilon\,\partial_{t_1} + \varepsilon^{2}\,\partial_{t_2},\qquad \nabla = \varepsilon\,\nabla_1,\qquad S_i = \varepsilon\,S_i^{(1)},
+\end{align}
+and collecting terms order by order produces two equations:
+\begin{align}
+\mathcal{O}(\varepsilon)&:\quad \dt\,D_i^{(1)}\,f_i^{(0)} = -\omega\,f_i^{(1)} + \dt\,S_i^{(1)},\label{eq:ce-eps}\\
+\mathcal{O}(\varepsilon^{2})&:\quad \dt\,\partial_{t_2}\,f_i^{(0)} + \dt\!\left(1 - \frac{\omega}{2}\right)\!D_i^{(1)}\,f_i^{(1)} + \frac{\dt^{2}}{2}\,D_i^{(1)}\,S_i^{(1)} = -\omega\,f_i^{(2)},\label{eq:ce-eps2}
+\end{align}
+where $D_i^{(1)} \equiv \partial_{t_1} + \bm{c}_i\!\cdot\!\nabla_1$ and the $\mathcal{O}(\varepsilon^{2})$ equation has been simplified by using~\eqref{eq:ce-eps} to eliminate $D_i^{(1)}{}^{2}\,f_i^{(0)}$. The factor $(1-\omega/2)$ multiplying the streaming term of $f_i^{(1)}$ in~\eqref{eq:ce-eps2} is \emph{the same} prefactor that appears in the Guo source~\eqref{eq:ce-Si}; this coincidence is the structural reason why force-induced spurious stresses cancel.
+
+\subsubsection{Continuity}\label{sec:ce-continuity}
+
+Summing~\eqref{eq:ce-eps} over $i$ and using $\sum_i S_i^{(1)} = 0$ together with $\sum_i f_i^{(1)} = 0$,
+\begin{equation}
+\partial_{t_1}\rho + \nabla_1\!\cdot\!(\rho\,\uph) = 0.
+\label{eq:ce-cont1}
+\end{equation}
+Summing~\eqref{eq:ce-eps2}: the identity $\sum_i D_i^{(1)}\,f_i^{(1)} = -\tfrac{\dt}{2}\nabla_1\!\cdot\!\Ftot^{(1)}$ (from~\eqref{eq:ce-fkmom}) cancels exactly with the source contribution $\tfrac{\dt}{2}\sum_i D_i^{(1)}\,S_i^{(1)} = \tfrac{\dt}{2}(1-\omega/2)\nabla_1\!\cdot\!\Ftot^{(1)}$ after collection, leaving
+\begin{equation}
+\partial_{t_2}\rho = 0.
+\label{eq:ce-cont2}
+\end{equation}
+Recombining the two time scales via $\partial_t = \varepsilon\partial_{t_1} + \varepsilon^{2}\partial_{t_2}$ and $\nabla = \varepsilon\nabla_1$:
+\begin{equation}
+\boxed{\;\partial_t\rho + \nabla\!\cdot\!(\rho\,\uph) = 0.\;}
+\label{eq:ce-continuity}
+\end{equation}
+
+\subsubsection{Euler-Level Momentum (order $\varepsilon$)}\label{sec:ce-euler}
+
+Multiplying~\eqref{eq:ce-eps} by $\bm{c}_i$ and summing,
+\begin{equation}
+\partial_{t_1}(\rho\,\uph) + \nabla_1\!\cdot\!\bm{\Pi}^{(0)} = \Ftot^{(1)},
+\label{eq:ce-euler}
+\end{equation}
+with $\bm{\Pi}^{(0)} \equiv \sum_i f_i^{(0)}\,\bm{c}_i\bm{c}_i = \cs^{2}\rho\,\bm{I} + \rho\,\uph\otimes\uph$ from the equilibrium moments. The $(1-\omega/2)\Ftot$ contribution from $\sum_i S_i^{(1)}\bm{c}_i$ combines additively with the $-(\dt/2)\Ftot$ contribution from $\sum_i f_i^{(1)}\bm{c}_i$ (constraint~\eqref{eq:ce-fkmom}) to reproduce $\Ftot^{(1)}$ on the right-hand side. Identifying the isothermal equation of state $P = \cs^{2}\rho$, equation~\eqref{eq:ce-euler} becomes
+\begin{equation}
+\partial_{t_1}(\rho\,\uph) + \nabla_1\!\cdot\!(\rho\,\uph\otimes\uph) = -\nabla_1 P + \Ftot^{(1)}.
+\label{eq:ce-euler2}
+\end{equation}
+
+\subsubsection{Viscous Stress and Exact Cancellation of the Guo Spurious Term (order $\varepsilon^{2}$)}\label{sec:ce-viscous}
+
+The crucial calculation is the non-equilibrium stress tensor
+\begin{equation}
+\Pi^{(1)}_{\alpha\beta} \equiv \sum_i f_i^{(1)}\,c_{i\alpha}c_{i\beta} = -\frac{\dt}{\omega}\sum_i D_i^{(1)}f_i^{(0)}\,c_{i\alpha}c_{i\beta} + \frac{\dt}{\omega}\sum_i S_i^{(1)}\,c_{i\alpha}c_{i\beta},
+\end{equation}
+where the first equality follows from solving~\eqref{eq:ce-eps} for $f_i^{(1)}$. The first sum requires the third-order moment of the equilibrium,
+\begin{equation}
+\sum_i f_i^{(0)}\,c_{i\alpha}c_{i\beta}c_{i\gamma} = \cs^{2}\rho\,(u_\alpha\delta_{\beta\gamma} + u_\beta\delta_{\alpha\gamma} + u_\gamma\delta_{\alpha\beta}) + \mathcal{O}(u^{3}),
+\end{equation}
+and, after substituting~\eqref{eq:ce-cont1} and~\eqref{eq:ce-euler2} to eliminate the temporal derivatives, evaluates to
+\begin{equation}
+-\frac{\dt}{\omega}\sum_i D_i^{(1)}f_i^{(0)}\,c_{i\alpha}c_{i\beta} = -\cs^{2}\dt\!\left(\tau - \tfrac{1}{2}\right)\rho\bigl[\partial_{1\alpha}u_\beta + \partial_{1\beta}u_\alpha\bigr] + \dt\!\left(\tau - \tfrac{1}{2}\right)\!\bigl[u_\alpha F^{(1)}_\beta + u_\beta F^{(1)}_\alpha\bigr].
+\label{eq:ce-Pi1-A}
+\end{equation}
+The second sum, using the explicit Guo form~\eqref{eq:ce-Si},
+\begin{equation}
+\sum_i S_i^{(1)}\,c_{i\alpha}c_{i\beta} = \left(1 - \frac{\omega}{2}\right)\!\bigl[u_\alpha F^{(1)}_\beta + u_\beta F^{(1)}_\alpha\bigr],
+\end{equation}
+yields
+\begin{equation}
+\frac{\dt}{\omega}\sum_i S_i^{(1)}\,c_{i\alpha}c_{i\beta} = \dt\!\left(\frac{1}{\omega} - \frac{1}{2}\right)\!\bigl[u_\alpha F^{(1)}_\beta + u_\beta F^{(1)}_\alpha\bigr] = \dt\!\left(\tau - \tfrac{1}{2}\right)\!\bigl[u_\alpha F^{(1)}_\beta + u_\beta F^{(1)}_\alpha\bigr].
+\label{eq:ce-Pi1-B}
+\end{equation}
+The two force-proportional contributions in~\eqref{eq:ce-Pi1-A} and~\eqref{eq:ce-Pi1-B} \emph{cancel exactly}, leaving the purely viscous expression
+\begin{equation}
+\boxed{\;\Pi^{(1)}_{\alpha\beta} = -\,\cs^{2}\dt\!\left(\tau - \tfrac{1}{2}\right)\rho\bigl[\partial_{1\alpha}u_\beta + \partial_{1\beta}u_\alpha\bigr] = -\,\mu\bigl[\partial_{1\alpha}u_\beta + \partial_{1\beta}u_\alpha\bigr],\;}
+\label{eq:ce-Pi1}
+\end{equation}
+with the \emph{dynamic} viscosity
+\begin{equation}
+\boxed{\;\mu = \cs^{2}\,\dt\!\left(\tau - \tfrac{1}{2}\right)\rho,\qquad \nu = \cs^{2}\,\dt\!\left(\tau - \tfrac{1}{2}\right).\;}
+\label{eq:ce-mu}
+\end{equation}
+The mutual cancellation in~\eqref{eq:ce-Pi1-A}--\eqref{eq:ce-Pi1-B} is the precise reason why the Guo forcing scheme recovers Navier--Stokes \emph{without} a spurious deviatoric body-force contribution. Any other prefactor for $S_i$ leaves a residual term proportional to $\uph\otimes\Ftot$, which would manifest as an unphysical anisotropic stress at locations of large $\Ftot$, e.g.\ along the diffuse interface where the capillary force is concentrated.
+
+\subsubsection{Recombination into the Macroscopic Navier--Stokes Equation}\label{sec:ce-recomb}
+
+Multiplying~\eqref{eq:ce-eps2} by $\bm{c}_i$, summing, and using $\sum_i f_i^{(2)}\bm{c}_i = 0$ together with~\eqref{eq:ce-Pi1} produces the $\mathcal{O}(\varepsilon^{2})$ momentum equation, which combined with~\eqref{eq:ce-euler2} (restoring $\partial_t = \varepsilon\partial_{t_1} + \varepsilon^{2}\partial_{t_2}$ and $\nabla = \varepsilon\nabla_1$) gives the conservative form
+\begin{equation}
+\partial_t(\rho\,\uph) + \nabla\!\cdot\!(\rho\,\uph\otimes\uph) = -\nabla P + \nabla\!\cdot\!\bigl[\mu\,(\nabla\uph + \nabla\uph^{\mathrm{T}})\bigr] + \Ftot.
+\label{eq:ce-NS-cons}
+\end{equation}
+In the low-Mach incompressible regime $\rho \approx \mathrm{const}$ and the equation can be cast in the non-conservative form
+\begin{equation}
+\boxed{\;\rho\!\left(\partial_t\uph + \uph\!\cdot\!\nabla\uph\right) = -\nabla P + \mu\,\nabla^{2}\uph + \Ftot.\;}
+\label{eq:ce-NS-body}
+\end{equation}
+
+\subsubsection{Closure: Identification of the Three Body Forces}\label{sec:ce-closure}
+
+Equation~\eqref{eq:ce-NS-body} is closed by inserting the explicit form of $\Ftot = \Fcap + \Fmag + \Fdrag$ used by the kernel. The three contributions, derived in the earlier subsections of this chapter, are:
+\begin{itemize}
+    \item \textbf{Capillary (Korteweg) force.} The Cahn--Hilliard chemical potential $\mu_c = 4\beta\,\phi(\phi^{2}-1) - \kappa\,\nabla^{2}\phi$ generates the diffuse-interface body force $\Fcap = \mu_c\,\nabla\phi$. Integration of the corresponding stress across an equilibrium planar interface $\phi_{\mathrm{eq}}(z) = \tanh(z/W)$ with $W = \sqrt{\kappa/(2\beta)}$ recovers the macroscopic surface tension
+    \begin{equation}
+    \sigma = \frac{4\sqrt{2}}{3}\sqrt{\kappa\,\beta},
+    \label{eq:ce-sigma}
+    \end{equation}
+    so that $\Fcap$ is the diffuse-interface analogue of the sharp-interface singular contribution $\sigma\,\kappa_{\mathrm{curv}}\,\delta_\Gamma\,\hat{\bm{n}}$.
+
+    \item \textbf{Kelvin magnetic body force.} With $\bm{H} = \bm{H}_0 - \nabla\tilde{\psi}$ and susceptibility law $\chi(\phi) = \chi_{\max}(\phi+1)/2$, the divergence of the Maxwell stress tensor in the magnetostatic regime reduces (modulo an absorbed pressure gradient) to
+    \begin{equation}
+    \Fmag = -\tfrac{1}{2}\,|\bm{H}|^{2}\,\nabla\chi,
+    \label{eq:ce-Fm}
+    \end{equation}
+    which is supported only on the diffuse interface where $\nabla\chi \neq 0$. The perturbative potential $\tilde{\psi}$ itself satisfies the magnetostatic Poisson equation
+    \begin{equation}
+    \divg\!\bigl[\mu_r(\bm{x})\,\nabla\tilde{\psi}\bigr] = \bm{H}_0\!\cdot\!\nabla\mu_r,\qquad \mu_r = 1 + \chi,
+    \label{eq:ce-poisson}
+    \end{equation}
+    solved by the SOR Gauss--Seidel routine in \texttt{Magnetismo/poisson.py}.
+
+    \item \textbf{Darcy--Brinkman drag.} The drag~\eqref{eq:ce-darcy} is the two-phase generalisation of the linear Darcy resistance, with a phase-weighted total mobility $\lambda_{\mathrm{tot}}$. Because it is included \emph{inside} $\Ftot$ in the kinetic equation, the implicit inversion~\eqref{eq:ce-uphys} guarantees that the discrete momentum balance is exact even for low permeabilities. At the macroscopic level it acts as a linear sink:
+    \begin{equation}
+    \Fdrag = -\sigd\,\rho\,\uph = -\frac{\rho}{K\,\lambda_{\mathrm{tot}}}\,\uph.
+    \label{eq:ce-Fd}
+    \end{equation}
+    In the single-phase limit ($\phi \equiv \pm 1 \Rightarrow \lambda_{\mathrm{tot}} = 1/\nu$), $\sigd\,\rho = \mu/K$ and~\eqref{eq:ce-Fd} collapses to the textbook Darcy term $-\mu\uph/K$.
+\end{itemize}
+
+\subsubsection{Final Macroscopic System}\label{sec:ce-final}
+
+Substituting~\eqref{eq:ce-Fm}, \eqref{eq:ce-Fd}, and the capillary force into~\eqref{eq:ce-NS-body}, the macroscopic system effectively solved by the coupled solver is the following set of equations:
+\begin{align}
+\partial_t\rho + \nabla\!\cdot\!(\rho\,\uph) &= 0, \label{eq:ce-final-mass}\\[4pt]
+\rho\!\left(\partial_t\uph + \uph\!\cdot\!\nabla\uph\right) &= -\nabla P + \mu\,\nabla^{2}\uph + \mu_c\,\nabla\phi - \tfrac{1}{2}|\bm{H}|^{2}\,\nabla\chi - \frac{\rho}{K\,\lambda_{\mathrm{tot}}}\,\uph, \label{eq:ce-final-mom}\\[4pt]
+\partial_t\phi + \uph\!\cdot\!\nabla\phi &= M\,\nabla^{2}\mu_c,\qquad \mu_c = 4\beta\,\phi(\phi^{2}-1) - \kappa\,\nabla^{2}\phi, \label{eq:ce-final-ch}\\[4pt]
+\divg\!\bigl[(1+\chi)\nabla\tilde{\psi}\bigr] &= \bm{H}_0\!\cdot\!\nabla\chi,\qquad \bm{H} = \bm{H}_0 - \nabla\tilde{\psi}. \label{eq:ce-final-poisson}
+\end{align}
+Equations~\eqref{eq:ce-final-mass}--\eqref{eq:ce-final-poisson} constitute the target macroscopic model that the discrete kernel reproduces to $\mathcal{O}(\dt^{2})$, free of force-induced spurious stresses by construction of the Guo source.
+
+\subsubsection{Limiting Cases and Internal Consistency}\label{sec:ce-limits}
+
+The recovered system collapses to well-known reference models in three limiting regimes, each used at some point in the validation suite of the present work:
+
+\begin{description}
+    \item[\textbf{Free flow ($K\to\infty$).}] $\sigd \to 0$, hence $\uph \equiv \uph^{\star}$ in~\eqref{eq:ce-uphys}, and the Darcy sink in~\eqref{eq:ce-final-mom} vanishes identically. The system collapses to the two-phase Navier--Stokes--Cahn--Hilliard model with magnetic stresses --- the unconfined ferrofluid Hele--Shaw limit --- without any change in the kernel.
+
+    \item[\textbf{Vanishing applied field ($\bm{H}_0 = \bm{0}$).}] Equation~\eqref{eq:ce-final-poisson} admits the trivial solution $\tilde{\psi} \equiv 0$, hence $\bm{H} \equiv \bm{0}$ and $\Fmag \equiv \bm{0}$. The remaining equations are the classical Saffman--Taylor problem in a Hele--Shaw cell modelled through Darcy resistance --- the benchmark against which the linear stability analysis of the linear stability analysis chapter is compared.
+
+    \item[\textbf{Pure phase ($\phi = \pm 1$ uniform).}] $\nabla\phi = \nabla\chi = \bm{0}$ identically, so both interfacial body forces vanish and the system reduces to single-phase Navier--Stokes with linear Darcy drag. This is exactly the configuration of the \texttt{validate\_darcy\_flow} routine in \texttt{post\_process/}, used to measure the numerical permeability $K_{num}$ against the imposed $K_0$.
+\end{description}
+
+\subsubsection{Code-to-Equation Correspondence}\label{sec:ce-correspondence}
+
+Table~\ref{tab:ce-mapping} summarises the line-by-line mapping between each macroscopic contribution recovered by the Chapman--Enskog analysis above and the source-code location where it is implemented. This mapping is the explicit \emph{audit trail} that links the rigorous hydrodynamic limit derived in this section to the actual computational operations executed at run time.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Macroscopic term} & \textbf{Equation} & \textbf{Code location} \\
+\midrule
+Mass conservation $\nabla\!\cdot(\rho\uph)$ & \eqref{eq:ce-final-mass} & lattice streaming, automatic \\
+Shear stress $\mu\,\nabla^{2}\uph$ & \eqref{eq:ce-NS-body}, \eqref{eq:ce-mu} & $\nu_{\mathrm{eff}} \to \tau$, \texttt{lbm.py:59--65} \\
+Capillary force $\mu_c\,\nabla\phi$ & \eqref{eq:ce-final-mom} & \texttt{lbm.py:28--34} \\
+Magnetic force $-\tfrac{1}{2}|\bm{H}|^{2}\nabla\chi$ & \eqref{eq:ce-Fm} & \texttt{lbm.py:36--48} \\
+Darcy drag $-\sigd\,\rho\,\uph$ & \eqref{eq:ce-Fd} & \texttt{lbm.py:67--70, 87--88} \\
+Implicit drag inversion $\uph^{\star}/(1+\sigd/2)$ & \eqref{eq:ce-uphys} & \texttt{lbm.py:84--85} \\
+Guo source with $(1-\omega/2)$ prefactor & \eqref{eq:ce-Si} & \texttt{lbm.py:94--96} \\
+Magnetostatic Poisson for $\tilde{\psi}$ & \eqref{eq:ce-final-poisson} & \texttt{Magnetismo/poisson.py} \\
+Cahn--Hilliard evolution of $\phi$ & \eqref{eq:ce-final-ch} & \texttt{cahn\_hilliard/cahn\_hilliard.py} \\
+\bottomrule
+\end{tabular}
+\caption{Mapping between the macroscopic equations recovered by the Chapman--Enskog analysis and the source-code locations implementing each contribution.}
+\label{tab:ce-mapping}
+\end{table}
+
+\noindent\textbf{Closing remark.} The derivation above is exact to $\mathcal{O}(\dt^{2})$ in the lattice spacing, in the precise sense that every spurious deviatoric stress generated by the inclusion of body forces in the kinetic equation is cancelled by the corresponding moment of the Guo source~\eqref{eq:ce-Si}. This property is what justifies, on first principles, the quantitative comparison between the numerical growth rates extracted from the LBM kernel and the analytical predictions of the linear stability analysis presented in the linear stability analysis chapter: any residual discrepancy beyond the discretisation error of the diffuse interface must be sought in the mobility calibration, the interface thickness, or the fitting window of the exponential growth phase --- \emph{not} in the forcing scheme itself.
+
 \subsection{Boundary Conditions}
 The streaming step advects post-collision populations to adjacent nodes. At the longitudinal solid boundaries ($y=0$ and $y=N_y-1$), the no-slip condition is enforced via the half-way bounce-back scheme \cite{zou1997analytical}. Algorithmically, this reflects the incoming distribution functions strictly back to their origin node ($\mathbf{c}_{\bar{i}} = -\mathbf{c}_i$), ensuring exact mass conservation at the walls.
+
+\textcolor{red}{[AUDITORIA --- no \emph{kernel atual} (\texttt{lbm.py:100--108}) o eixo transversal $y$ é tratado como \emph{periódico} via \texttt{be\_y = (y + CY[i] + ny) \% ny}, e \emph{não} existem paredes sólidas com bounce-back. O esquema half-way bounce-back só está presente em ramo separado (validação Poiseuille). Reescrever esta subseção para deixar claro que, no setup principal de fingering, ambos os eixos $y$ são periódicos (consistente com o modo LSA de injeção em domínio espacialmente periódico).]}
 
 At the transverse open boundaries, asymmetric conditions are implemented to simulate a semi-infinite flow-driven channel:
 \begin{itemize}
     \item \textbf{Inlet ($x=0$)}: A constant velocity Dirichlet condition is applied. Missing incoming populations are reconstructed using the equilibrium distribution $f_i^{eq}$ defined by the prescribed velocity $\mathbf{u} = (U_{in}, 0)$. To prevent unphysical pressure build-up and maintain consistency with the internal Darcy resistance field, the local macroscopic density is not hard-coded; instead, it is backward-extrapolated from the first internal fluid node ($\rho = \rho_{x=1}$).
+
+    \textcolor{red}{[AUDITORIA --- a descrição não corresponde ao código. Em \texttt{lbm.py:122--128} o inlet é o esquema \emph{Zou-He de velocidade}: $\rho_{in}$ é calculado a partir dos momentos da função de distribuição como $\rho_{in} = (f_0+f_2+f_4 + 2(f_3+f_6+f_7))/(1-U_{in})$, e as populações desconhecidas $f_1, f_5, f_8$ são reconstruídas analiticamente via momentos com a contribuição de não-equilíbrio. Não há reconstrução por $f^{eq}$ nem extrapolação retrógrada de $\rho$.]}
+
     \item \textbf{Outlet ($x=N_x-1$)}: A Neumann-type convective boundary condition is applied to allow the smooth exit of interfacial perturbations. The code implements a second-order spatial extrapolation for the populations ($f_i^{N_x-1} = 2f_i^{N_x-2} - f_i^{N_x-3}$). This numerical approach effectively nullifies the second derivatives at the boundary, mitigating spurious mass and acoustic reflections back into the computational domain.
+
+    \textcolor{red}{[AUDITORIA --- também incorreto. Em \texttt{lbm.py:112--120} o outlet é o esquema \emph{Zou-He de pressão} com $\rho_{out} = 1.0$ fixado (Dirichlet em $\rho$, equivalente à Dirichlet em pressão pelo EoS isotérmico $p = c_s^2\rho$). $U_{out}$ é calculado dos momentos e as populações $f_3, f_6, f_7$ são reconstruídas analiticamente. Reescrever: ``Outlet ($x = N_x-1$): Zou-He pressure boundary with $\rho_{out} = 1.0$, ancorando o gradiente longitudinal de Darcy estabelecido em todo o domínio.'']}
 \end{itemize}
 
 \subsection{Algorithm Structure and Main Loop}
@@ -100,13 +460,29 @@ The computational implementation strictly follows the standard LBM algorithm str
     \item \textbf{Macroscopic Update}: The fluid density $\rho$ and phase fraction $\phi$ are updated via the zeroth-order moments of their respective distributions, advancing the system to $t + \Delta t$.
 \end{enumerate}
 
+\textcolor{red}{[AUDITORIA --- a ordem listada acima diverge de \texttt{main.py:70--96}. A sequência real por iteração é: (A) Poisson/SOR magnético para $\tilde{\psi}$ (\texttt{main.py:73--75}), (B) $N_{sub}$ chamadas do substep de Cahn--Hilliard (\texttt{main.py:80--87}), (C) \texttt{lbm\_step} que internamente faz forçamento $\rightarrow$ colisão+streaming combinados no mesmo loop $\rightarrow$ BCs abertas, (D) swap de buffers $f$, (E) diagnóstico de massa, (F) export VTK em checkpoints. Reescrever o pseudocódigo para refletir essa ordem; em particular, deixar explícito que o solver Poisson antecede o substep de CH (porque $\psi$ entra na força magnética avaliada \emph{dentro} do \texttt{lbm\_step}).]}
+
+\textcolor{blue}{[ADICIONAR --- subseções faltantes que descrevem módulos efetivamente presentes no código mas ainda sem cobertura no relatório:]}
+
+\textcolor{blue}{\textbf{(i) Magnetostatic Poisson Solver (Gauss-Seidel SOR).} O módulo \texttt{Magnetismo/poisson.py} resolve $\nabla\!\cdot\!(\mu_r(\phi)\nabla\tilde{\psi}) = \mathbf{H}_0\!\cdot\!\nabla\mu_r$ por SOR Gauss-Seidel com 15 varreduras internas por chamada, condições de Neumann em $x$ ($\tilde{\psi}$ anula-se longe da interface) e periodicidade estrita em $y$. As permeabilidades $\mu_r$ nas faces da célula são obtidas por média aritmética dos nós vizinhos (esquema de volumes finitos centrado em $\tilde{\psi}$). Documentar o pré-aquecimento (warm-up) do solver em \texttt{main.py:62--67}: antes do primeiro passo temporal, 30 chamadas adicionais (=450 varreduras totais) são feitas para garantir que $\tilde{\psi}$ esteja convergido, evitando transientes magnéticos espúrios.}
+
+\textcolor{blue}{\textbf{(ii) Susceptibility Constitutive Law.} A suscetibilidade local é definida por $\chi(\phi) = \tfrac{1}{2}(\phi+1)\,\chi_{\max}$, com \texttt{np.clip} em $[0, 1]$ antes de multiplicar por $\chi_{\max}$ (\texttt{main.py:74}). Interpretação: fase invasora ($\phi=+1$) é paramagnética com $\chi=\chi_{\max}$; fase residente ($\phi=-1$) é não-magnética ($\chi=0$); a interface difusa tem $\chi$ linearmente interpolado --- consistente com o regime de Deborah $\ll 1$ discutido na seção de fluidos magnéticos.}
+
+\textcolor{blue}{\textbf{(iii) Initial Conditions and Darcy Pre-pressurization.} O módulo \texttt{initialization/initialization.py} estabelece três campos não-triviais antes do primeiro passo: (a) interface difusa $\phi(x,y) = -\tanh((x - x_{int}(y))/W)$ com $x_{int}(y) = x_c + A\cos(2\pi m\, y/N_y)$ implementando diretamente a perturbação senoidal de modo $m$ requerida pela LSA; (b) campo de densidade $\rho_{base}(x)$ pré-pressurizado por integração analítica do gradiente de Darcy $\nabla p = 3(\nu/K_0)U_{in}$ a partir do outlet ancorado em $\rho=1$, com viscosidade trocada na interface ($\nu_{in}$ para $x < x_c$, $\nu_{out}$ para $x \geq x_c$); (c) populações $f_i$ inicializadas na distribuição de equilíbrio para $\mathbf{u}=(U_{in},0)$. A pré-pressurização suprime o transiente acústico inicial e permite que o regime linear de instabilidade seja medido a partir de $t=0$.}
+
+\textcolor{blue}{\textbf{(iv) Operating Modes (\texttt{mode\_m}).} O parâmetro \texttt{mode\_m} no \texttt{casos.json} seleciona o modo de operação: \texttt{mode\_m > 0} ativa o modo de fingering com perturbação senoidal de número de onda $k = 2\pi m/N_y$ (regime LSA); \texttt{mode\_m = 0} é o modo de validação Darcy (perturbação nula, mede $K_{num}$); \texttt{mode\_m = -1} ativa o modo Young-Laplace em caixa estritamente periódica para medir tensão interfacial ($\sigma_{num}$ a partir do salto de pressão $\Delta p = \sigma/R$). O fluxo de validação correspondente é selecionado em \texttt{main.py:115--121}.}
+
+\textcolor{blue}{\textbf{(v) Diagnostics and Post-processing.} Documentar o módulo \texttt{post\_process/}: exportação VTK por checkpoint para visualização em Paraview, histórico de massa total para auditoria de conservação, extração da posição da ponta do dedo $x_{tip}(t)$ para análise de taxa de crescimento $s(k)$, e as rotinas de validação \texttt{validate\_darcy\_flow}, \texttt{valida\_laplace}, \texttt{valida\_lsa}.}
+
 
 
 
 \subsection{Code Validation: 2D Poiseuille Flow}
-To verify the accuracy of the implemented LBM collision operators and boundary conditions, a fundamental Poiseuille flow in a two-dimensional channel was simulated. The computational domain was discretized into $N_x \times N_y = 200 \times 50$ lattice nodes. The flow is kinematically driven by a constant inlet velocity condition of $U_{in} = 0.01$ lattice units (lu) enforced at $x=0$, while the zero-gradient convective boundary condition is applied at the outlet ($x=199$). No-slip conditions at the upper and lower rigid walls are recovered via the half-way bounce-back rule [EXPLICAR MELHOR O QUE SÃO O HALF-WAY E O BOUNCE-BACK E PORQUE SE PODE USAR ISSO, ALEM DE CITAR ARITGO QUE DESENVOLVEU ISSO]. [FALAR QUE O CASO SIMULADO ASSIM ESTA EM UMA BRANCH DO GITHUB + PASSAR LINK]
+To verify the accuracy of the implemented LBM collision operators and boundary conditions, a fundamental Poiseuille flow in a two-dimensional channel was simulated. The computational domain was discretized into $N_x \times N_y = 200 \times 50$ lattice nodes. The flow is kinematically driven by a constant inlet velocity condition of $U_{in} = 0.01$ lattice units (lu) enforced at $x=0$, while the zero-gradient convective boundary condition is applied at the outlet ($x=199$). No-slip conditions at the upper and lower rigid walls are recovered via the \emph{half-way bounce-back} rule \cite{ladd1994numerical, ziegler1993boundary}.
 
-The theoretical velocity profile for a fully developed, steady, incompressible channel flow is given by the parabolic equation [CITAR ARTIGO]:
+The bounce-back scheme is the canonical no-slip boundary condition in lattice Boltzmann methods. The basic rule is purely algorithmic: any post-collision population $f_i$ propagating into a solid node is reflected back along the opposite lattice direction $\bm{c}_{\bar{\imath}} = -\bm{c}_i$, so that the streaming step delivers $f_{\bar{\imath}}(\bm{x},t+\Delta t) = f_i(\bm{x},t^{+})$ back to the fluid node from which it came. In the \emph{full-way} variant the wall is conceptually placed on the solid node itself, which produces a $\mathcal{O}(\Delta x)$ boundary-layer error and underdelivers no-slip. The \emph{half-way} variant --- adopted here --- places the physical wall exactly midway between the last fluid node and the first solid node; this geometric correction restores second-order spatial accuracy of the no-slip condition for the D2Q9 lattice and is the formulation rigorously analysed by Ladd \cite{ladd1994numerical} and Ziegler \cite{ziegler1993boundary}. Its appeal is operational: the scheme is strictly local (no boundary stencil required), exactly mass-conserving at the wall, and trivially compatible with the parallel streaming step --- properties that make it the standard choice for verifying LBM kernels against analytical viscous flows. The exact case configuration and post-processing scripts used to generate the validation reported below are available in the repository branch \texttt{Versao3-Teste-Poiseuille}\footnote{\url{https://github.com/BorgesMath/LatticeBoltzman/tree/Versao3-Teste-Poiseuille}}.
+
+The theoretical velocity profile for a fully developed, steady, incompressible channel flow is given by the classical parabolic equation derived from a one-dimensional integration of the Stokes momentum balance under no-slip walls and a constant longitudinal pressure gradient \cite{white2006viscous}:
 \begin{equation}
     u_x(y) = \frac{4 U_{max}}{H^2} y (H - y)
 \end{equation}
@@ -141,7 +517,7 @@ where $\mathbf{F}_{ext}$ encapsulates all explicit external body forces (e.g., c
 This formulation guarantees algorithmic synchronization with normal free-flow regions. In zones without porous structures ($K \to \infty$), the structural resistance denominator converges to unity ($\sigma = \nu/K \to 0$). Consequently, the system recovers standard Navier-Stokes hydrodynamics smoothly and continuously, eliminating the need for conditional logic (branching) at fluid-porous interfaces. [ESSA PARTE ESTÁ REDUNDANTE EM PARTES COM O  %% \subsection{Darcy Resistance and Kinematic Recovery (Guo Scheme)  %% VER O QUE SAI E O QUE FICA ]
 
 \subsection{Data Extraction and $K$ Recovery Methodology}
-The numerical validation of the porous resistance was conducted in a $200 \times 50$ lattice domain. The flow was driven by a constant kinematic inlet ($U_{in} = 0.01$ lu) and constrained by a strict thermodynamic Dirichlet boundary at the outlet ($\rho_{out} = 1.0$). [FALAR QUE O CASO SIMULADO ASSIM ESTA EM UMA BRANCH DO GITHUB + PASSAR LINK]
+The numerical validation of the porous resistance was conducted in a $200 \times 50$ lattice domain. The flow was driven by a constant kinematic inlet ($U_{in} = 0.01$ lu) and constrained by a strict thermodynamic Dirichlet boundary at the outlet ($\rho_{out} = 1.0$). The complete simulation configuration --- including the \texttt{casos.json} parameter set (\texttt{mode\_m = 0}, $K_0$ sweep), the modified main loop, and the post-processing routine \texttt{validate\_darcy\_flow} that produces the parity and error plots reported below --- is available in the repository branch \texttt{Versao3-Teste-Darcy}\footnote{\url{https://github.com/BorgesMath/LatticeBoltzman/tree/Versao3-Teste-Darcy}}.
 
 To rigorously evaluate the permeability recovery, it is mandatory to eliminate spurious kinetic artifacts generated by non-equilibrium population reconstructions at the open boundaries. Therefore, the hydrodynamic variables were extracted exclusively from the channel centerline ($y = N_y/2$) within a spatially truncated, fully developed ``bulk region'' defined between $x = 0.25N_x$ and $x = 0.75N_x$. 
 

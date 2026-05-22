@@ -1,39 +1,109 @@
 \relax 
 \citation{chen1998lattice}
+\citation{guo2002discrete}
 \citation{qian1992lattice}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Computational Methodology}{39}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Lattice Boltzmann Method and Solver Formulation}{39}{}\protected@file@percent }
 \citation{bhatnagar1954model}
 \citation{guo2002discrete}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Computational Methodology}{38}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Lattice Boltzmann Method and Solver Formulation}{38}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}{39}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.1}Five-Point Isotropic Stencil}{39}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.2}Boundary Conditions}{39}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.3}Explicit Euler Update and Numerical Safeguards}{40}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.4}Temporal Substepping and CFL Constraint}{41}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.5}Parallelization and Coupling}{41}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Cahn-Hilliard Solver: Spatial Discretization and Temporal Substepping}{40}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.1}Five-Point Isotropic Stencil}{41}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.2}Boundary Conditions}{41}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.3}Explicit Euler Update and Numerical Safeguards}{42}{}\protected@file@percent }
+\newlabel{sec:cahnhilliard-update}{{6.2.3}{42}{}{subsubsection.6.2.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.4}Temporal Substepping and the Biharmonic CFL Constraint via Von Neumann Analysis}{43}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Linearised model equation.}{43}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Spatial-temporal discretisation.}{43}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Insertion of the Fourier ansatz.}{44}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Stability condition.}{45}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Extension to two dimensions.}{45}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Physical manifestation of the instability.}{46}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Practical implementation in the code.}{46}{}\protected@file@percent }
 \citation{cahn1958free}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.5}Parallelization and Coupling}{47}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}External Forcing: Interfacial and Magnetic Couplings}{47}{}\protected@file@percent }
 \citation{guo2002discrete}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}External Forcing: Interfacial and Magnetic Couplings}{42}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Darcy Resistance and Kinematic Recovery (Guo Scheme)}{48}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Macroscopic Limit: Chapman--Enskog Recovery of the Darcy--Brinkman--Magnetic Navier--Stokes System}{49}{}\protected@file@percent }
+\newlabel{sec:chapman-enskog}{{6.5}{49}{}{subsection.6.5}{}}
+\citation{chen1998lattice}
+\citation{guo2002discrete}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.1}Setup: D2Q9 Isotropy and the Guo-Augmented BGK Equation}{50}{}\protected@file@percent }
+\newlabel{sec:ce-setup}{{6.5.1}{50}{}{subsubsection.6.5.1}{}}
+\newlabel{eq:ce-iso23}{{107}{50}{}{equation.107}{}}
+\newlabel{eq:ce-iso4}{{108}{50}{}{equation.108}{}}
+\newlabel{eq:ce-lbm}{{109}{50}{}{equation.109}{}}
+\newlabel{eq:ce-feq}{{110}{50}{}{equation.110}{}}
+\newlabel{eq:ce-Si}{{111}{50}{}{equation.111}{}}
+\newlabel{eq:ce-Smom}{{112}{50}{}{equation.112}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.2}Macroscopic Moments and the Implicit Drag Inversion}{51}{}\protected@file@percent }
+\newlabel{sec:ce-moments}{{6.5.2}{51}{}{subsubsection.6.5.2}{}}
+\newlabel{eq:ce-rhou}{{113}{51}{}{equation.113}{}}
+\newlabel{eq:ce-darcy}{{114}{51}{}{equation.114}{}}
+\newlabel{eq:ce-Ftot}{{115}{51}{}{equation.115}{}}
+\newlabel{eq:ce-uphys}{{117}{51}{}{equation.117}{}}
+\newlabel{eq:ce-fkmom}{{118}{52}{}{equation.118}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.3}The Multiscale Ansatz}{52}{}\protected@file@percent }
+\newlabel{sec:ce-multiscale}{{6.5.3}{52}{}{subsubsection.6.5.3}{}}
+\newlabel{eq:ce-taylor}{{119}{52}{}{equation.119}{}}
+\newlabel{eq:ce-eps}{{122}{52}{}{equation.122}{}}
+\newlabel{eq:ce-eps2}{{123}{52}{}{equation.123}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.4}Continuity}{52}{}\protected@file@percent }
+\newlabel{sec:ce-continuity}{{6.5.4}{52}{}{subsubsection.6.5.4}{}}
+\newlabel{eq:ce-cont1}{{124}{52}{}{equation.124}{}}
+\newlabel{eq:ce-cont2}{{125}{53}{}{equation.125}{}}
+\newlabel{eq:ce-continuity}{{126}{53}{}{equation.126}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.5}Euler-Level Momentum (order $\varepsilon $)}{53}{}\protected@file@percent }
+\newlabel{sec:ce-euler}{{6.5.5}{53}{}{subsubsection.6.5.5}{}}
+\newlabel{eq:ce-euler}{{127}{53}{}{equation.127}{}}
+\newlabel{eq:ce-euler2}{{128}{53}{}{equation.128}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.6}Viscous Stress and Exact Cancellation of the Guo Spurious Term (order $\varepsilon ^{2}$)}{53}{}\protected@file@percent }
+\newlabel{sec:ce-viscous}{{6.5.6}{53}{}{subsubsection.6.5.6}{}}
+\newlabel{eq:ce-Pi1-A}{{131}{53}{}{equation.131}{}}
+\newlabel{eq:ce-Pi1-B}{{133}{54}{}{equation.133}{}}
+\newlabel{eq:ce-Pi1}{{134}{54}{}{equation.134}{}}
+\newlabel{eq:ce-mu}{{135}{54}{}{equation.135}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.7}Recombination into the Macroscopic Navier--Stokes Equation}{54}{}\protected@file@percent }
+\newlabel{sec:ce-recomb}{{6.5.7}{54}{}{subsubsection.6.5.7}{}}
+\newlabel{eq:ce-NS-cons}{{136}{54}{}{equation.136}{}}
+\newlabel{eq:ce-NS-body}{{137}{54}{}{equation.137}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.8}Closure: Identification of the Three Body Forces}{55}{}\protected@file@percent }
+\newlabel{sec:ce-closure}{{6.5.8}{55}{}{subsubsection.6.5.8}{}}
+\newlabel{eq:ce-sigma}{{138}{55}{}{equation.138}{}}
+\newlabel{eq:ce-Fm}{{139}{55}{}{equation.139}{}}
+\newlabel{eq:ce-poisson}{{140}{55}{}{equation.140}{}}
+\newlabel{eq:ce-Fd}{{141}{55}{}{equation.141}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.9}Final Macroscopic System}{56}{}\protected@file@percent }
+\newlabel{sec:ce-final}{{6.5.9}{56}{}{subsubsection.6.5.9}{}}
+\newlabel{eq:ce-final-mass}{{142}{56}{}{equation.142}{}}
+\newlabel{eq:ce-final-mom}{{143}{56}{}{equation.143}{}}
+\newlabel{eq:ce-final-ch}{{144}{56}{}{equation.144}{}}
+\newlabel{eq:ce-final-poisson}{{145}{56}{}{equation.145}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.10}Limiting Cases and Internal Consistency}{56}{}\protected@file@percent }
+\newlabel{sec:ce-limits}{{6.5.10}{56}{}{subsubsection.6.5.10}{}}
 \citation{zou1997analytical}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Darcy Resistance and Kinematic Recovery (Guo Scheme)}{43}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Boundary Conditions}{43}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Algorithm Structure and Main Loop}{44}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.7}Code Validation: 2D Poiseuille Flow}{44}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Enter Caption}}{45}{}\protected@file@percent }
-\newlabel{fig:placeholder}{{8}{45}{}{figure.8}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.11}Code-to-Equation Correspondence}{57}{}\protected@file@percent }
+\newlabel{sec:ce-correspondence}{{6.5.11}{57}{}{subsubsection.6.5.11}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Mapping between the macroscopic equations recovered by the Chapman--Enskog analysis and the source-code locations implementing each contribution.}}{57}{}\protected@file@percent }
+\newlabel{tab:ce-mapping}{{1}{57}{}{table.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Boundary Conditions}{57}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.7}Algorithm Structure and Main Loop}{59}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.8}Code Validation: 2D Poiseuille Flow}{61}{}\protected@file@percent }
 \citation{guo2002discrete}
-\@writefile{toc}{\contentsline {section}{\numberline {7}Darcy-Brinkman Regime and Permeability Validation}{46}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Guo Forcing Scheme and Kinematic Synchronization}{46}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Enter Caption}}{62}{}\protected@file@percent }
+\newlabel{fig:placeholder}{{8}{62}{}{figure.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Darcy-Brinkman Regime and Permeability Validation}{62}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Guo Forcing Scheme and Kinematic Synchronization}{62}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Data Extraction and $K$ Recovery Methodology}{63}{}\protected@file@percent }
 \citation{brinkman1949calculation}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Data Extraction and $K$ Recovery Methodology}{47}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Validation Results}{47}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Hydrodynamic validation of the internal resistance field for $K_0 = 10.0$ lu.}}{48}{}\protected@file@percent }
-\newlabel{fig:darcy_profile}{{9}{48}{}{figure.9}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Permeability recovery performance and relative computational error across different porous regimes.}}{49}{}\protected@file@percent }
-\newlabel{fig:darcy_error}{{10}{49}{}{figure.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Validation Results}{64}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Hydrodynamic validation of the internal resistance field for $K_0 = 10.0$ lu.}}{64}{}\protected@file@percent }
+\newlabel{fig:darcy_profile}{{9}{64}{}{figure.9}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Permeability recovery performance and relative computational error across different porous regimes.}}{65}{}\protected@file@percent }
+\newlabel{fig:darcy_error}{{10}{65}{}{figure.10}{}}
 \@setckpt{capitulos/lbm_teoria}{
-\setcounter{page}{50}
-\setcounter{equation}{95}
+\setcounter{page}{66}
+\setcounter{equation}{149}
 \setcounter{enumi}{5}
 \setcounter{enumii}{0}
 \setcounter{enumiii}{0}
@@ -47,7 +117,7 @@
 \setcounter{paragraph}{0}
 \setcounter{subparagraph}{0}
 \setcounter{figure}{10}
-\setcounter{table}{0}
+\setcounter{table}{1}
 \setcounter{float@type}{4}
 \setcounter{parentequation}{0}
 }
