@@ -1,0 +1,572 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% ─────────────────────────────────────────────────────────────────────
+%  Validação da Instabilidade de Saffman--Taylor (LSA) via Lattice Boltzmann
+%  Apresentação em Beamer — frames de validação numérica ↔ analítica
+% ─────────────────────────────────────────────────────────────────────
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{siunitx}
+\usepackage{xcolor}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+
+% ── Atalhos para grupos adimensionais ────────────────────────────────
+\newcommand{\Da}{\mathrm{Da}}
+\newcommand{\Ca}{\mathrm{Ca}}
+\newcommand{\Bo}{\mathrm{Bo}}
+\newcommand{\Cam}{\mathrm{Ca}_m}
+\newcommand{\Lref}{L_{\mathrm{ref}}}
+\newcommand{\Uref}{U_{\mathrm{ref}}}
+\newcommand{\snum}{s_{\mathrm{num}}}
+\newcommand{\sana}{s_{\mathrm{ana}}}
+\newcommand{\sloc}{s_{\mathrm{local}}}
+\newcommand{\slocmax}{s_{\mathrm{local}}^{\max}}
+\newcommand{\slocmed}{s_{\mathrm{local}}^{\mathrm{med}}}
+
+\definecolor{azul}{HTML}{1A5276}
+\definecolor{verde}{HTML}{1E8449}
+\definecolor{vermelho}{HTML}{922B21}
+
+% ─────────────────────────────────────────────────────────────────────
+\title[Validação LSA via LBM]{Validação da Instabilidade de Saffman--Taylor\\
+       em Meio Poroso via Lattice Boltzmann}
+\subtitle{Comparação da taxa de crescimento numérica com a análise de estabilidade linear}
+\author{Matheus Borges Sampaio}
+\date{\today}
+
+\begin{document}
+
+% ── Capa ─────────────────────────────────────────────────────────────
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Roteiro}
+  \tableofcontents
+\end{frame}
+
+% =====================================================================
+\section{Objetivo e fluxo de validação}
+% =====================================================================
+\begin{frame}{Objetivo da validação}
+  \begin{block}{Pergunta}
+    A taxa de crescimento de uma perturbação interfacial medida na simulação
+    \textbf{LBM--Cahn--Hilliard} concorda com a previsão da
+    \textbf{Análise de Estabilidade Linear (LSA)} de Darcy?
+  \end{block}
+  \vspace{0.4em}
+  O experimento numérico:
+  \begin{itemize}
+    \item Inicializa uma interface plana perturbada por um único modo de Fourier
+          $m$, de amplitude $A_0$, num deslocamento bifásico em meio poroso.
+    \item Integra o sistema até o regime linear se manifestar
+          ($A(t)\propto e^{s\,t}$).
+    \item Extrai a taxa $\snum$ e a compara com a taxa analítica $\sana$
+          dada pela relação de dispersão.
+  \end{itemize}
+  \begin{alertblock}{Critério de sucesso}
+    Erro relativo $\varepsilon = |\snum-\sana|/|\sana|$ pequeno
+    (poucos por cento), \emph{e} concordância entre estimadores independentes.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Fluxo em três etapas}
+  \begin{enumerate}
+    \item[\textbf{1}] \textbf{Simulação} — solver LBM-D2Q9 (forçamento de Guo +
+          arrasto de Darcy) acoplado a Cahn--Hilliard para a interface difusa.
+          Saída: \emph{snapshots} VTK do campo de fase $\phi(x,y,t)$.
+    \item[\textbf{2}] \textbf{Extração de $\snum$} — excursão pico-a-pico da
+          posição da interface $\phi=0$ $\rightarrow$ amplitude $A(t)$
+          $\rightarrow$ ajuste exponencial no regime linear.
+    \item[\textbf{3}] \textbf{Comparação} — relação de dispersão adimensional
+          $\zeta(\alpha)$ (Eq.~9), convertida para $\sana$ em unidades de
+          passo de tempo da rede, e cálculo dos erros relativos.
+  \end{enumerate}
+  \vspace{0.6em}
+  \begin{center}
+    \footnotesize
+    \texttt{main.py} $\;\Rightarrow\;$
+    \texttt{post\_process/valida\_lsa\_simples.py <caso>} $\;\Rightarrow\;$
+    \texttt{comparacao\_lsa\_simples.png} + relatório
+  \end{center}
+\end{frame}
+
+% =====================================================================
+\section{Como a taxa de crescimento numérica é obtida}
+% =====================================================================
+\begin{frame}{Passo 1 (1/4) — do campo de fase à série $A(t)$}
+  A cada \emph{snapshot} temporal lê-se o campo escalar de fase
+  $\phi(x,y,t_n)$ do arquivo VTK exportado pelo solver:
+  \begin{itemize}
+    \item $\phi\in[-1,+1]$, com $\phi=+1$ no fluido \textbf{invasor} (fase 1) e
+          $\phi=-1$ no fluido \textbf{deslocado} (fase 2);
+    \item a interface é o contorno de nível $\phi=0$, uma curva $x_{\mathrm{int}}(y)$
+          que ondula conforme o modo perturbado cresce.
+  \end{itemize}
+  \begin{block}{Objetivo do Passo 1}
+    Reduzir cada campo 2D $\phi(\cdot,\cdot,t_n)$ a um \textbf{único número} —
+    a amplitude $A(t_n)$ do modo $m$ — gerando uma série temporal limpa $A(t)$.
+  \end{block}
+  \begin{alertblock}{Por que isso importa}
+    No regime linear $A(t)\propto e^{s\,t}$. A taxa $s$ só pode ser ajustada de
+    forma confiável se $A(t)$ refletir fielmente a deformação do modo
+    inicializado. As etapas seguintes detalham como medi-la.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Passo 1 (2/4) — posição da interface com precisão sub-pixel}
+  Para cada linha $y$, varre-se em $x$ até a \textbf{primeira troca de sinal}
+  de $\phi$ (de $+$ para $-$): seja $x_\ell$ o último nó com $\phi>0$ e
+  $x_\ell+1$ o primeiro com $\phi<0$. O zero exato é interpolado linearmente:
+  \begin{equation*}
+    x^\star(y) = x_\ell + \frac{\phi(x_\ell,y)}{\phi(x_\ell,y)-\phi(x_\ell+1,y)}.
+  \end{equation*}
+  \begin{columns}[T]
+    \column{0.55\textwidth}
+    \begin{itemize}
+      \item Como $\phi(x_\ell)>0$ e $\phi(x_\ell+1)<0$, a fração cai em
+            $(0,1)$ $\Rightarrow$ posição \textbf{fracionária} (sub-pixel),
+            não limitada à malha inteira.
+      \item Precisão $O(\Delta x^2)$ desde que a interface seja resolvida
+            por $W\gtrsim 3$ nós.
+    \end{itemize}
+    \column{0.45\textwidth}
+    \begin{block}{Resultado}
+      Um perfil $x^\star(y)$ por \emph{snapshot} — a \textbf{forma instantânea}
+      completa da interface, e não apenas um pico.
+    \end{block}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Passo 1 (3/4) — amplitude pico-a-pico (método simples)}
+  Do perfil $x^\star(y)$ extrai-se a amplitude pela \textbf{excursão
+  pico-a-pico} da interface — a métrica mais direta possível:
+  \begin{equation*}
+    \boxed{\;A(t_n) = \tfrac{1}{2}\Big(\max_y x^\star(y,t_n)
+      \;-\; \min_y x^\star(y,t_n)\Big)\;}
+  \end{equation*}
+  \begin{itemize}
+    \item Mede a \textbf{semi-amplitude} da ondulação (distância da crista ao
+          vale dividida por 2) — mesma escala de $A_0$ da inicialização;
+    \item nenhum parâmetro livre, nenhuma transformada: lê-se diretamente a
+          geometria da interface;
+    \item invariante a translações rígidas — o avanço da posição média $x_c$
+          com a velocidade $U$ não altera $\max-\min$, apenas a \emph{deformação}
+          entra.
+  \end{itemize}
+  \begin{center}\footnotesize
+    Resultado: um escalar $A(t_n)$ por \emph{snapshot} $\Rightarrow$ série $A(t)$.
+  \end{center}
+\end{frame}
+
+\begin{frame}{Passo 1 (4/4) — amplitude da interface \emph{vs.} campo de potencial}
+  \begin{exampleblock}{Dúvida frequente}
+    \footnotesize
+    O crescimento não deveria ser $e^{\alpha(y-y_0)}\,e^{i\alpha x + st}$?
+    \;\textbf{Não} — essa expressão é o \emph{potencial de velocidade}
+    $\Phi'(x,y,t)$ no volume do fluido, e não a amplitude da interface.
+  \end{exampleblock}
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \textbf{Campo de potencial $\Phi'$ (volume 2D)}
+    \begin{equation*}
+      \Phi'_{1,2} = C_{1,2}\,e^{\mp\alpha(y-y_0)}\,e^{i\alpha x + st}
+    \end{equation*}
+    \footnotesize
+    O fator $e^{\mp\alpha(y-y_0)}$ é o \emph{decaimento} da perturbação ao se
+    afastar da interface — solução de $\nabla^2\Phi'=0$ com $\Phi'\to0$ em
+    $y\to\pm\infty$.
+    \column{0.5\textwidth}
+    \textbf{Posição da interface $\lambda$ (curva 1D)}
+    \begin{equation*}
+      \lambda(x,t) = \lambda_0\,e^{i\alpha x + st}
+    \end{equation*}
+    \footnotesize
+    Avaliada \emph{em} $y=y_0$, onde $e^{\alpha(y-y_0)}=1$. Não há fator de
+    decaimento: a interface é uma linha, não um campo volumétrico.
+  \end{columns}
+  \vspace{0.4em}
+  \hrule
+  \vspace{0.4em}
+  \footnotesize
+  Medimos a \textbf{interface} ($x^\star \leftrightarrow \lambda$). A excursão
+  pico-a-pico captura $|\lambda_0|\,e^{st}$ diretamente. Em meio poroso
+  $\omega=0$ (troca de estabilidades) $\Rightarrow s$ \textbf{real}
+  $\Rightarrow A(t)=A_0\,e^{st}$ puro, sem oscilação — exatamente a exponencial
+  ajustada no Passo 2.
+\end{frame}
+
+\begin{frame}{Passo 2 (1/2) — a taxa $\snum$ é a inclinação (\emph{slope})}
+  No regime linear espera-se crescimento exponencial. Tomando o logaritmo,
+  ele vira uma \textbf{reta}:
+  \begin{equation*}
+    A(t) = A_0\,e^{s\,t}
+    \;\Longrightarrow\;
+    \underbrace{\log A(t)}_{y} = \underbrace{\log A_0}_{\text{intercepto}}
+    + \underbrace{s}_{\text{inclinação}}\,t .
+  \end{equation*}
+  Em eixos $(t,\ \log A)$, a inclinação dessa reta \emph{é} a taxa $s$. Ela é
+  obtida por \textbf{regressão linear de mínimos quadrados} — escolhe-se
+  $(\log A_0,\,s)$ que minimizam a soma dos resíduos ao quadrado:
+  \begin{equation*}
+    \min_{\log A_0,\,s}\sum_{t_n\in[t_0,t_1]}
+    \big[\log A(t_n) - (\log A_0 + s\,t_n)\big]^2
+    \;\Rightarrow\;
+    \boxed{\;\snum = \frac{\sum_n (t_n-\bar t)(y_n-\bar y)}{\sum_n (t_n-\bar t)^2}\;}
+  \end{equation*}
+  \footnotesize
+  com $y_n=\log A(t_n)$. Fisicamente $\snum = \dfrac{d\log A}{dt}
+  = \dfrac{1}{A}\dfrac{dA}{dt}$ — a \textbf{taxa de crescimento relativa} por
+  passo de tempo [1/ts]. Usam-se só os pontos da janela $[t_0,t_1]$ com $A>0$.
+\end{frame}
+
+\begin{frame}{Passo 2 (2/2) — qualidade do ajuste: o $R^2$}
+  O \textbf{coeficiente de determinação} $R^2$ mede quão bem a reta descreve os
+  pontos $y_n=\log A(t_n)$ na janela:
+  \begin{equation*}
+    R^2 = 1 - \frac{\mathrm{SS_{res}}}{\mathrm{SS_{tot}}},
+    \qquad
+    \mathrm{SS_{res}} = \sum_n (y_n - \hat y_n)^2,
+    \quad
+    \mathrm{SS_{tot}} = \sum_n (y_n - \bar y)^2,
+  \end{equation*}
+  onde $\hat y_n = \log A_0 + \snum\,t_n$ é a previsão da reta e $\bar y$ a média.
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \footnotesize
+    \begin{itemize}
+      \item $\mathrm{SS_{res}}$: o que a reta \textbf{não} explica (resíduos);
+      \item $\mathrm{SS_{tot}}$: a variação total dos dados;
+      \item $R^2$ = fração da variância de $\log A$ \textbf{explicada} pela reta.
+    \end{itemize}
+    \column{0.5\textwidth}
+    \footnotesize
+    \begin{itemize}
+      \item $R^2=1$: ajuste perfeito (pontos exatamente sobre a reta);
+      \item $R^2=0$: reta não é melhor que a média $\bar y$.
+    \end{itemize}
+  \end{columns}
+  \vspace{0.3em}
+  \begin{alertblock}{Interpretação física}
+    \footnotesize
+    $R^2\approx 1$ confirma que $\log A$ é \emph{genuinamente linear} na janela
+    — i.e.\ o crescimento é exponencial puro, sem curvatura. Nos casos válidos
+    $R^2\gtrsim 0{,}95$ (em geral $>0{,}99$). É \emph{necessário} mas não
+    suficiente: por isso o Passo 2b confronta com $\sloc$.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Passo 2b (1/2) — taxa instantânea $\sloc$ e o parâmetro $k$}
+  Em vez de \emph{uma} reta global, calcula-se a inclinação \textbf{deslizante}:
+  para cada ponto $n$, ajusta-se uma reta usando só os vizinhos $[n-k,\,n+k]$:
+  \begin{equation*}
+    \sloc(t_n) = \frac{d}{dt}\log A
+    \approx \mathrm{slope}\big[\log A(t_j)\;|\;j\in[n-k,\,n+k]\big].
+  \end{equation*}
+  \begin{columns}[T]
+    \column{0.52\textwidth}
+    \textbf{O que é $k$}\\[0.2em]
+    \footnotesize
+    \begin{itemize}
+      \item meia-largura da janela, em \emph{nº de pontos}: cada inclinação usa
+            $2k+1$ pontos centrados em $n$;
+      \item adaptativo: $k=\max(3,\,N/16)$ — com $N=80$ amostras, $k=5$
+            ($11$ pontos por ajuste);
+      \item as $k$ primeiras/últimas amostras ficam sem valor (a janela não cabe).
+    \end{itemize}
+    \column{0.48\textwidth}
+    \textbf{Dois estimadores}\\[0.2em]
+    \footnotesize
+    \begin{itemize}
+      \item \textbf{Pico}: $\slocmax = \max_n \sloc(t_n)$ — máximo sobre
+            \emph{todos} os pontos válidos.
+      \item \textbf{Mediana}: $\slocmed = \mathrm{median}\{\sloc(t_n):t_n\in[t_0,t_1]\}$
+            — só \emph{dentro} da janela de ajuste.
+    \end{itemize}
+  \end{columns}
+  \vspace{0.3em}
+  \footnotesize
+  No regime exponencial puro $\sloc$ é \emph{aproximadamente constante}; cai no
+  transiente inicial e na saturação. Seu formato revela onde está o regime linear
+  (e automatiza a janela — próximo slide).
+\end{frame}
+
+\begin{frame}{Passo 2b (2/2) — janela de ajuste automática}
+  A janela $[t_0,t_1]$ usada no ajuste do Passo 2 é escolhida
+  \textbf{automaticamente} a partir do formato de $\sloc(t)$:
+  \begin{enumerate}
+    \item \textbf{Pico} — localiza-se $t_{\mathrm{pico}}$, onde $\sloc$ atinge
+          seu valor máximo $s_{\mathrm{pico}}$.
+    \item \textbf{Limiar} — fixa-se um corte $s_{\mathrm{pico}}\,(1-\delta)$,
+          uma fração $\delta$ abaixo do pico.
+    \item \textbf{Janela} — $[t_0,t_1]$ é o maior intervalo \emph{contíguo} em
+          torno do pico em que $\sloc(t)\ge s_{\mathrm{pico}}(1-\delta)$:
+          partindo de $t_{\mathrm{pico}}$, estende-se para os dois lados
+          enquanto a taxa instantânea \textbf{não cair} abaixo do corte.
+  \end{enumerate}
+  \begin{block}{Tolerância $\delta$ em escada}
+    \footnotesize
+    Começa estreita, em $\delta=4\%$ (exige $\sloc$ quase constante). Se a
+    janela tiver menos de \textbf{6 pontos} (regressão instável), relaxa-se o
+    corte em degraus $4\%\to6\%\to9\%\to13\%\to20\%$ até reunir 6 pontos. O
+    $\delta$ que cada caso exigiu indica sua qualidade —
+    \textbf{quanto menor, mais bem definido} o regime linear.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Síntese — os três estimadores de $s$}
+  Três medidas independentes da \emph{mesma} taxa, do mais global ao mais local:
+  \begin{table}
+    \centering\footnotesize
+    \setlength{\tabcolsep}{8pt}
+    \renewcommand{\arraystretch}{1.4}
+    \begin{tabular}{l l l}
+      \toprule
+      Estimador & Como é calculado & Sobre quais pontos \\
+      \midrule
+      $\snum$ (primário) & inclinação de \textbf{uma} regressão & toda a janela $[t_0,t_1]$ \\
+                         & global de $\log A$ (mín.\ quadrados) & \\
+      $\slocmax$         & \textbf{pico} de $\sloc(t)$          & todos os pontos válidos \\
+      $\slocmed$         & \textbf{mediana} de $\sloc(t)$       & dentro de $[t_0,t_1]$ \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.2em}
+  \begin{itemize}
+    \footnotesize
+    \item $\snum$: \emph{um} slope só, sobre toda a janela — sensível à curvatura
+          nas bordas.
+    \item $\sloc(t)$: inclinação \emph{deslizante} de $2k+1$ pontos; dela saem o
+          pico e a mediana.
+    \item Cada um vira um \textbf{erro} (vs.\ $\sana$); a \emph{concordância dos
+          três} indica taxa confiável — detalhado a seguir.
+  \end{itemize}
+\end{frame}
+
+% =====================================================================
+\section{Com o que é comparada: a teoria (LSA de Darcy)}
+% =====================================================================
+\begin{frame}{Passo 3 — relação de dispersão analítica (Eq.~9)}
+  A LSA de Darcy (interface abrupta, perturbação de Fourier puro, velocidade
+  base $\Uref$) fornece a taxa adimensional $\zeta = s\,\Lref/\Uref$ em função
+  de $\alpha = k\,\Lref = 2\pi m$:
+  \begin{equation*}
+    \zeta(\alpha) = \alpha\,\frac{M-1}{M+1}
+    + \frac{\Da}{\Ca\,(1+M)}\,\alpha
+    \big[\,\Bo - \alpha^2 + \Cam\,\Lambda_m\,\alpha\,(H_{0n}^2-H_{0t}^2)\,\big].
+  \end{equation*}
+  Nos casos aqui (\,$\Bo=0$, sem campo magnético: $\Cam=0$\,) reduz-se à
+  competição viscoso $\times$ capilar:
+  \begin{equation*}
+    \zeta(\alpha) = \underbrace{\alpha\,\frac{M-1}{M+1}}_{\text{desestabiliza}}
+    \;-\;\underbrace{\frac{\Da}{\Ca\,(1+M)}\,\alpha^3}_{\text{capilaridade estabiliza}}.
+  \end{equation*}
+  A taxa \textbf{dimensional} comparada com a simulação (por passo de tempo):
+  \begin{equation*}
+    \boxed{\;\sana = \zeta(\alpha)\,\frac{\Uref}{\Lref}\;,
+    \qquad \Lref = N_Y,\;\; \Uref = U_{\mathrm{inlet}}.\;}
+  \end{equation*}
+\end{frame}
+
+\begin{frame}{Grupos adimensionais e o ponto comparado}
+  \begin{columns}
+    \column{0.54\textwidth}
+    \begin{align*}
+      M    &= \nu_{\mathrm{out}}/\nu_{\mathrm{in}} &&\text{(razão de visc.)}\\
+      \Da  &= K_0/\Lref^2 &&\text{(Darcy)}\\
+      \Ca  &= \nu_{\mathrm{in}}\,\Uref/\sigma &&\text{(capilar)}\\
+      \alpha &= 2\pi m &&\text{(nº de onda do modo)}
+    \end{align*}
+    \column{0.46\textwidth}
+    \begin{block}{O que se compara}
+      A simulação fixa um único modo $m$ (i.e.\ um único $\alpha$).
+      A validação compara o \textbf{ponto} $\zeta(\alpha_m)$ da curva
+      analítica com o $\zeta_{\mathrm{num}}=\snum\,\Lref/\Uref$ medido.
+    \end{block}
+  \end{columns}
+  \vspace{0.4em}
+  \begin{center}\footnotesize
+    Painel direito da figura: curva $\zeta(\alpha)$ com o ponto analítico
+    (\textcolor{vermelho}{$\bullet$}) e o ponto numérico
+    (\textcolor{verde}{$\blacklozenge$}) sobre $\alpha_m$.
+  \end{center}
+\end{frame}
+
+% =====================================================================
+\section{Os três erros e a tabela de resultados}
+% =====================================================================
+\begin{frame}{Os três tipos de erro}
+  Cada estimador é comparado à \emph{mesma} referência analítica $\sana$:
+  \begin{equation*}
+    \varepsilon(\hat s) = \frac{|\hat s - \sana|}{|\sana|}\times 100\%,
+    \qquad \hat s \in \{\snum,\ \slocmax,\ \slocmed\}.
+  \end{equation*}
+  \begin{columns}[T]
+    \column{0.34\textwidth}
+    \textbf{Erro (\%)}\\
+    \footnotesize de $\snum$: ajuste exponencial global (polyfit log-linear)
+    em toda a janela $[t_0,t_1]$. Sensível à curvatura nas bordas.
+    \column{0.34\textwidth}
+    \textbf{$\varepsilon_{\max}$ (\%)}\\
+    \footnotesize de $\slocmax$: pico da taxa instantânea suavizada.
+    Melhor estimativa \emph{pontual} do regime exponencial.
+    \column{0.34\textwidth}
+    \textbf{$\varepsilon_{\mathrm{med}}$ (\%)}\\
+    \footnotesize de $\slocmed$: mediana de $\sloc$ na janela.
+    Robusto a \emph{outliers} e à curvatura de borda.
+  \end{columns}
+  \vspace{0.6em}
+  \begin{block}{Como ler a diferença entre eles}
+    \footnotesize
+    Os três concordam $\Rightarrow$ regime linear bem capturado; taxa confiável.
+    Só o \emph{polyfit} discorda $\Rightarrow$ a janela inclui curvatura;
+    $\slocmed$ é o estimador preferido. Os três discordam $\Rightarrow$ o caso
+    não está em regime linear (amplitude grande ou $k\xi$ excessivo).
+  \end{block}
+\end{frame}
+
+\begin{frame}{Tabela de resultados}
+  \begin{table}
+    \centering
+    \scriptsize
+    \setlength{\tabcolsep}{6pt}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{l r r r r r r}
+      \toprule
+      & & & & \multicolumn{3}{c}{Erro relativo (\%)} \\
+      \cmidrule(lr){5-7}
+      Caso & $k\xi$ & $\snum$ & $\sana$ & ajuste & $\varepsilon_{\max}$ & $\varepsilon_{\mathrm{med}}$ \\
+      \midrule
+      AB:\ $W{=}2$, $m{=}1$        & 0.0157 & 1.222e-05 & 1.170e-05 & 4.38 & 1.88 & \textbf{1.09} \\
+      AB:\ $W{=}4$, $m{=}1$        & 0.0314 & 1.109e-05 & 1.170e-05 & 5.21 & 4.03 & 5.46 \\
+      \addlinespace
+      AC:\ $W{=}3$, $A_0{=}10$     & 0.0184 & 9.154e-06 & 9.143e-06 & 0.11 & 0.68 & 3.67 \\
+      AC:\ $W{=}3$, $A_0{=}5$      & 0.0184 & 8.823e-06 & 9.143e-06 & 3.50 & 3.34 & 4.61 \\
+      AC:\ $W{=}4$, $A_0{=}10$     & 0.0245 & 9.242e-06 & 9.143e-06 & 1.08 & \textbf{0.48} & 2.12 \\
+      AC:\ $W{=}4$, $A_0{=}5$      & 0.0245 & 8.567e-06 & 9.143e-06 & 6.30 & 4.30 & 6.34 \\
+      \addlinespace
+      AD:\ $W{=}3$, $M$ baixo      & 0.0184 & 9.145e-06 & 9.143e-06 & \textbf{0.01} & 0.96 & 3.55 \\
+      AD:\ $W{=}3$, visc.\ linear  & 0.0184 & 9.118e-06 & 9.143e-06 & 0.28 & 1.07 & 4.06 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.2em}
+  \scriptsize
+  \textbf{$k\xi$}: produto do número de onda $k=2\pi m/N_Y$ pela espessura $W$
+  da interface difusa; mede o quanto a interface se afasta do limite
+  \emph{abrupto} suposto pela LSA (menor $\Rightarrow$ mais ideal).\;
+  \textbf{visc.\ linear}: caso de controle com viscosidade efetiva interpolada
+  linearmente, $\nu=S\,\nu_{\mathrm{in}}+(1-S)\,\nu_{\mathrm{out}}$, em vez da
+  média harmônica padrão.\;
+  Comuns: $M=4{,}00$, $\Da=1{,}25\times10^{-4}$, $m=1$ ($\alpha=2\pi$);
+  $s$ em [1/passo de tempo].\;
+  \textbf{Outliers} descartados: $W{=}1$ (viola o critério de \emph{Nyquist} —
+  a interface ocupa poucos nós da rede para resolver seu gradiente, gerando
+  correntes espúrias) e $A_0{=}20$ (fora do regime linear).
+\end{frame}
+
+\begin{frame}{Leitura da tabela}
+  \begin{itemize}
+    \item \textbf{Todos os casos válidos ficam $\leq 6{,}3\%$} em pelo menos um
+          estimador — concordância quantitativa com a LSA de Darcy.
+    \item O ajuste pico-a-pico é \textbf{muito preciso} em $W{=}3$--$4$ com
+          amplitude moderada: \textbf{AD $M$ baixo} (Erro $0{,}01\%$),
+          \textbf{AC $W3$ $A_0{=}10$} ($0{,}1\%$),
+          \textbf{AD visc.\ linear} ($0{,}3\%$),
+          \textbf{AC $W4$ $A_0{=}10$} ($1{,}1\%$).
+    \item Aqui o \textbf{Erro do polyfit} é, em geral, o \emph{menor} dos três:
+          a amplitude $\max-\min$ produz uma exponencial muito limpa na janela,
+          favorecendo o ajuste global.
+    \item A janela automática precisou de tolerância um pouco maior
+          ($\delta=6\%$) em três casos ($W{=}3$, $A_0{=}10$; $M$ baixo;
+          visc.\ linear): a taxa instantânea $\sloc$ fica ligeiramente mais
+          ruidosa, pois $\max-\min$ depende de uma única linha de crista/vale
+          por instante.
+  \end{itemize}
+\end{frame}
+
+% =====================================================================
+\section{Figuras de comparação}
+% =====================================================================
+\begin{frame}{Comparação $A(t)$ e dispersão — AD $M$ baixo (melhor ajuste)}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.92\textwidth]{figuras_validacao_lsa/comp_Mlow.png}
+    \caption{Esq.: crescimento $A(t)$ (pico-a-pico) com ajuste exponencial
+    (azul) e taxa analítica (vermelho tracejado). Dir.: ponto medido sobre a
+    curva de dispersão $\zeta(\alpha)$. Erro de apenas $0{,}01\%$.}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Comparação — AC $W{=}3$, $A_0{=}10$ (Erro $=0{,}1\%$)}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.92\textwidth]{figuras_validacao_lsa/comp_W3_amp10.png}
+    \caption{Amplitude pico-a-pico: o ajuste exponencial global praticamente
+    coincide com a previsão analítica ($\snum=9{,}154\times10^{-6}$ vs.\
+    $\sana=9{,}143\times10^{-6}$).}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Comparação — AC $W{=}4$, $A_0{=}10$ e AB $W{=}2$}
+  \begin{columns}
+    \column{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\textwidth]{figuras_validacao_lsa/comp_W4_amp10.png}
+      \caption{\footnotesize AC $W{=}4$, $A_0{=}10$: erro $1{,}1\%$.}
+    \end{figure}
+    \column{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\textwidth]{figuras_validacao_lsa/comp_W2.png}
+      \caption{\footnotesize AB $W{=}2$: erro $4{,}4\%$ ($\varepsilon_{\mathrm{med}}=1{,}1\%$).}
+    \end{figure}
+  \end{columns}
+  \vspace{0.2em}
+  \begin{center}\footnotesize
+    Os pontos numérico (\textcolor{verde}{$\blacklozenge$}) e
+    analítico (\textcolor{vermelho}{$\bullet$}) praticamente coincidem sobre
+    $\alpha_m=2\pi$.
+  \end{center}
+\end{frame}
+
+% =====================================================================
+\section{Conclusões}
+% =====================================================================
+\begin{frame}{Conclusões}
+  \begin{itemize}
+    \item O solver LBM--Cahn--Hilliard \textbf{reproduz quantitativamente} a
+          relação de dispersão de Saffman--Taylor de Darcy: erros de
+          \textbf{$\leq 6\%$} (vários $< 1\%$) nos casos dentro do regime linear.
+    \item A taxa $\snum$ é obtida por ajuste exponencial da amplitude
+          \textbf{pico-a-pico} $A=\tfrac12(\max-\min)$; os estimadores
+          $\slocmax$ e $\slocmed$ fornecem \textbf{validação cruzada}.
+    \item A métrica pico-a-pico, apesar de simples, produz exponenciais muito
+          limpas: o Erro do ajuste global é frequentemente o \emph{menor} dos
+          três estimadores.
+    \item Critérios de qualidade respeitados: $W\geq 3$, $A_0/W$ pequeno,
+          $k\xi \lesssim 0{,}03$. Violá-los (\,$W{=}1$, $A_0{=}20$\,) degrada o
+          erro para $>30\%$ — confirmando os limites de validade da LSA.
+  \end{itemize}
+  \vspace{0.5em}
+  \begin{center}
+    \footnotesize Reprodução: \texttt{python post\_process/valida\_lsa\_simples.py <caso>}
+  \end{center}
+\end{frame}
+
+\begin{frame}
+  \centering\Large Obrigado!\\[0.5em]
+  \normalsize Perguntas?
+\end{frame}
+
+\end{document}

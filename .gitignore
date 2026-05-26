@@ -8,3 +8,8 @@
 /OpcaoAD_W3_amp10_linvisc_kxi0p018_d13mes05-h15_min51/
 /OpcaoAD_W3_amp20_kxi0p018_d12mes05-h17_min01/
 /OpcaoAD_W3_Mlow_kxi0p018_d12mes05-h21_min59/
+
+# Artefatos de build do LaTeX (Relatorios)
+*.aux
+*.log
+*.pdf
