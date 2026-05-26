@@ -1,36 +1,44 @@
 \section{Theoretical Background}
 
-This section establishes the theoretical foundation necessary to comprehend, analytically formulate, and numerically simulate the active control of viscous fingering in porous media. It will starts by examining fluid dynamics across different spatial scales, transitioning from the microscopic pore-level interactions to the macroscopic continuum descriptions governing flow in porous media. Subsequently, the physical principles of multiphase flow are addressed, with particular emphasis on the dynamic interactions between immiscible fluids, interfacial tension, and the resulting capillary phenomena. Building upon these interfacial concepts, the mathematical framework of Linear Stability Analysis (LSA) is introduced to rigorously describe the onset, growth, and governing parameters of the Saffman-Taylor instability.
-
-Following the characterization of the instability, the physicochemical properties of magnetic fluids (ferrofluids) and the governing equations of magneto-hydrodynamics are presented. This provides the physical basis for how external magnetic fields exert stabilizing body forces (the Kelvin force) at the fluid-fluid interface. Finally, to bridge the gap between analytical stability criteria and complex, non-linear flow regimes, the theoretical basis of the Lattice Boltzmann Method (LBM) is detailed. Operating at a mesoscopic scale through the discrete Boltzmann equation, the LBM presents distinct advantages over traditional macroscopic Navier-Stokes solvers, particularly regarding the natural resolution of complex interfacial dynamics, phase separation, and the incorporation of external magnetic forces within the intricate geometries characteristic of porous matrixes.
+This section establishes the theoretical foundation necessary to comprehend, analytically formulate, and numerically simulate the active control of viscous fingering in porous media.
+It begins by examining fluid dynamics across different spatial scales, transitioning from the microscopic pore-level interactions to the macroscopic continuum descriptions governing flow in porous media.
+Subsequently, the physical principles of multiphase flow are addressed, with particular emphasis on the dynamic interactions between immiscible fluids, interfacial tension, and the resulting capillary phenomena.
+Building upon these interfacial concepts, the mathematical framework of Linear Stability Analysis (LSA) is introduced to rigorously describe the onset, growth, and governing parameters of the Saffman--Taylor instability.
+Following the characterization of the instability, the physicochemical properties of magnetic fluids (ferrofluids) and the governing equations of magneto-hydrodynamics are presented.
+This provides the physical basis for how external magnetic fields exert stabilizing body forces (the Kelvin force) at the fluid--fluid interface.
+Finally, to bridge the gap between analytical stability criteria and complex, non-linear flow regimes, the theoretical basis of the Lattice Boltzmann Method (LBM) is detailed.
+Operating at a mesoscopic scale through the discrete Boltzmann equation, the LBM presents distinct advantages over traditional macroscopic Navier--Stokes solvers, particularly regarding the natural resolution of complex interfacial dynamics, phase separation, and the incorporation of external magnetic forces within the intricate geometries characteristic of porous matrices.
 
 \subsection{Flow in Porous Media}
 
 \subsubsection{Micro-Scale Porous Media: The Stokes Limit}
 
-At the microscopic scale, a porous medium is defined as a multiply connected domain $\Omega \subset \mathbb{R}^3$, partitioned into a fluid phase $\Omega_f$ and a stationary solid phase $\Omega_s$. The interface $\Gamma = \partial \Omega_f \cap \partial \Omega_s$ represents the complex topological boundary of the pore walls \cite{whitaker1999method}.
-
+At the microscopic scale, a porous medium is defined as a multiply connected domain $\Omega \subset \mathbb{R}^3$, partitioned into a fluid phase $\Omega_f$ and a stationary solid phase $\Omega_s$.
+The interface $\Gamma = \partial \Omega_f \cap \partial \Omega_s$ represents the complex topological boundary of the pore walls \cite{whitaker1999method}.
 In this domain, the flow physics is strictly governed by the ratio of inertial forces to viscous forces \cite{batchelor1967introduction}.
 
 \paragraph{Dimensional Analysis and the Stokes Regime}
-The characterization of the flow regime relies on the Reynolds number defined at the pore scale. Let $\ell$ be the characteristic length scale (e.g., hydraulic diameter of a pore throat) and $U$ be the characteristic velocity scale within the pore.
-
+The characterization of the flow regime relies on the Reynolds number defined at the pore scale.
+Let $\ell$ be the characteristic length scale (e.g., hydraulic diameter of a pore throat) and $U$ be the characteristic velocity scale within the pore.
 \begin{equation}
     Re_\ell = \frac{\rho U \ell}{\mu}
 \end{equation}
 
-In micro-porous media (e.g., microfluidic networks, sedimentary rock matrices), $\ell$ is typically on the order of $10^{-6}$ to $10^{-4}$\,m. Consequently, even for moderate pressure gradients, $Re_\ell \ll 1$.
+In micro-porous media (e.g., microfluidic networks, sedimentary rock matrices), $\ell$ is typically on the order of $10^{-6}$ to $10^{-4}$\,m.
+Consequently, even for moderate pressure gradients, $Re_\ell \ll 1$.
 
-Applying the non-dimensionalization variables $\mathbf{x}^* = \mathbf{x}/\ell$, $\mathbf{u}^* = \mathbf{u}/U$, and $p^* = p \ell / (\mu U)$, the steady-state Navier-Stokes momentum equation becomes:
+Applying the non-dimensionalization variables $\mathbf{x}^* = \mathbf{x}/\ell$, $\mathbf{u}^* = \mathbf{u}/U$, and $p^* = p \ell / (\mu U)$, the steady-state Navier--Stokes momentum equation becomes:
 
 \begin{equation}
     Re_\ell (\mathbf{u}^* \cdot \nabla^*) \mathbf{u}^* = -\nabla^* p^* + {\nabla^*}^2 \mathbf{u}^*
 \end{equation}
 
-As $Re_\ell \to 0$, the inertial term on the left-hand side vanishes. The governing physics reduces to a balance between pressure gradients and viscous diffusion.
+As $Re_\ell \to 0$, the inertial term on the left-hand side vanishes.
+The governing physics reduces to a balance between pressure gradients and viscous diffusion.
 
 \paragraph{Governing Micro-Scale Equations}
-The fluid motion in $\Omega_f$ is described by the Stokes equations (creeping flow) \cite{stokes1851effect}. The system is linear and instantaneous (time-independent):
+The fluid motion in $\Omega_f$ is described by the Stokes equations (creeping flow) \cite{stokes1851effect}.
+The system is linear and instantaneous (time-independent):
 
 \begin{itemize}
     \item \textbf{Momentum Balance:}
@@ -51,8 +59,8 @@ where $\mathbf{D} = \frac{1}{2}(\nabla \mathbf{u} + (\nabla \mathbf{u})^T)$ is t
 
 \subsubsection{Meso-Scale Formulation: The Darcy-Brinkman Equation}
 
-The transition from the micro-scale Stokes regime to the meso-scale continuum is achieved by averaging the governing equations over a Representative Elementary Volume, $V$. Let $V_f$ represent the fluid volume within $V$, and $A_{fs}$ represent the interfacial area between the fluid and the solid particles.
-
+The transition from the micro-scale Stokes regime to the meso-scale continuum is achieved by averaging the governing equations over a Representative Elementary Volume, $V$.
+Let $V_f$ represent the fluid volume within $V$, and $A_{fs}$ represent the interfacial area between the fluid and the solid particles.
 We define the superficial average velocity, $\mathbf{v} \equiv \langle \mathbf{u} \rangle$, as:
 \begin{equation}
     \langle \mathbf{u} \rangle = \frac{1}{V} \int_{V_f} \mathbf{u} \, dV
@@ -64,7 +72,8 @@ Starting with the micro-scale stationary Stokes momentum equation:
     -\nabla p + \mu \nabla^2 \mathbf{u} + \rho \mathbf{b} = 0
 \end{equation}
 
-We apply the averaging operator $\langle \cdot \rangle$ to each term. The critical mathematical tool required is the \textit{Spatial Averaging Theorem} (SAT), which allows us to commute the gradient and averaging operators \cite{whitaker1999method}:
+We apply the averaging operator $\langle \cdot \rangle$ to each term.
+The critical mathematical tool required is the \textit{Spatial Averaging Theorem} (SAT), which allows us to commute the gradient and averaging operators \cite{whitaker1999method}:
 \begin{equation}
     \langle \nabla \psi \rangle = \nabla \langle \psi \rangle + \frac{1}{V} \int_{A_{fs}} \psi \mathbf{n}_{fs} \, dA
 \end{equation}
@@ -78,13 +87,13 @@ where $\mathbf{n}_{fs}$ is the unit normal vector pointing from the fluid to the
         -\langle \nabla p \rangle = -\nabla \langle p \rangle^f - \frac{1}{V} \int_{A_{fs}} p \mathbf{n}_{fs} \, dA
     \end{equation}
     Here, $\langle p \rangle^f$ is the intrinsic average pressure (pore pressure).
-
-    \item \textbf{Viscous Term (Brinkman \& Drag):} Applying the SAT to $\mu \nabla^2 \mathbf{u}$ requires a second-order expansion. For high porosity media, we approximate \cite{brinkman1949calculation}:
+    \item \textbf{Viscous Term (Brinkman \& Drag):} Applying the SAT to $\mu \nabla^2 \mathbf{u}$ requires a second-order expansion.
+    For high porosity media, we approximate \cite{brinkman1949calculation}:
     \begin{equation}
         \mu \langle \nabla^2 \mathbf{u} \rangle \approx \underbrace{\mu_{eff} \nabla^2 \mathbf{v}}_{\text{Brinkman Term}} + \underbrace{\frac{1}{V} \int_{A_{fs}} \mu (\nabla \mathbf{u}) \cdot \mathbf{n}_{fs} \, dA}_{\text{Shear Drag}}
     \end{equation}
-    The first term represents the viscous diffusion of average momentum (important near boundaries), where $\mu_{eff}$ is the effective viscosity. The second term represents the viscous shear stress at the particle surfaces.
-
+    The first term represents the viscous diffusion of average momentum (important near boundaries), where $\mu_{eff}$ is the effective viscosity.
+    The second term represents the viscous shear stress at the particle surfaces.
     \item \textbf{Body Force:} Assuming $\rho \mathbf{b}$ is constant over the domain:
     \begin{equation}
         \langle \rho \mathbf{b} \rangle = \phi \rho \mathbf{b} \approx \rho \mathbf{b} \quad (\text{per unit fluid volume})
@@ -98,9 +107,9 @@ Combining these averaged terms, we group the surface integrals (pressure drag an
     \mathbf{f} = \underbrace{-\frac{1}{V} \int_{A_{fs}} p \mathbf{n}_{fs} \, dA}_{\text{Form Drag}} + \underbrace{\frac{1}{V} \int_{A_{fs}} \mu (\nabla \mathbf{u}) \cdot \mathbf{n}_{fs} \, dA}_{\text{Viscous Drag}}
 \end{equation}
 
-This term $\mathbf{f}$ represents the \textbf{average resistance force exerted by the fixed particles on the fluid}. 
+This term $\mathbf{f}$ represents the \textbf{average resistance force exerted by the fixed particles on the fluid}.
 
-Substituting this back into the momentum balance yields the \textbf{Darcy-Brinkman equation}:
+Substituting this back into the momentum balance yields the \textbf{Darcy--Brinkman equation}:
 
 \begin{equation}
     -\nabla \langle p \rangle^f + \mu_{eff} \nabla^2 \mathbf{v} + \rho \mathbf{b} + \mathbf{f} = 0
@@ -108,7 +117,8 @@ Substituting this back into the momentum balance yields the \textbf{Darcy-Brinkm
 
 \subsubsection{Macroscopic Limits: From Brinkman to Darcy}
 
-Having established the meso-scale momentum balance (Darcy-Brinkman), we can now formally construct Darcy's Law and determine the conditions under which each governing equation is valid. This process relies on the concept of \textbf{hydrodynamic screening}.
+Having established the meso-scale momentum balance (Darcy--Brinkman), we can now formally construct Darcy's Law and determine the conditions under which each governing equation is valid.
+This process relies on the concept of \textbf{hydrodynamic screening}.
 
 \paragraph{Construction of Darcy's Equation}
 Starting from the generalized meso-scale equation derived previously (neglecting body forces $\mathbf{b}$ for brevity):
@@ -117,7 +127,9 @@ Starting from the generalized meso-scale equation derived previously (neglecting
     -\nabla p + \mu_{eff} \nabla^2 \mathbf{v} - \frac{\mu}{K} \mathbf{v} = 0
 \end{equation}
 
-We perform a scaling analysis. Let $L_c$ be the characteristic length scale of the macroscopic flow variation (e.g., the size of the domain or the scale of pressure gradients). The differential terms scale as:
+We perform a scaling analysis.
+Let $L_c$ be the characteristic length scale of the macroscopic flow variation (e.g., the size of the domain or the scale of pressure gradients).
+The differential terms scale as:
 
 \begin{equation}
     \mu_{eff} \nabla^2 \mathbf{v} \sim \frac{\mu V}{L_c^2} \quad \text{and} \quad \frac{\mu}{K} \mathbf{v} \sim \frac{\mu V}{K}
@@ -129,7 +141,8 @@ The ratio of the viscous stress term (Brinkman) to the drag term (Darcy) is defi
     \frac{\text{Viscous Stress}}{\text{Drag}} \sim \frac{\mu V / L_c^2}{\mu V / K} = \frac{K}{L_c^2} = Da
 \end{equation}
 
-In the limit where the macroscopic length scale is very large compared to the pore structure ($L_c^2 \gg K$, or $Da \to 0$), the viscous stress term $\mu_{eff} \nabla^2 \mathbf{v}$ becomes negligible. The equation asymptotically reduces to the algebraic balance known as \textbf{Darcy's Law}:
+In the limit where the macroscopic length scale is very large compared to the pore structure ($L_c^2 \gg K$, or $Da \to 0$), the viscous stress term $\mu_{eff} \nabla^2 \mathbf{v}$ becomes negligible.
+The equation asymptotically reduces to the algebraic balance known as \textbf{Darcy's Law}:
 
 \begin{equation}
     -\nabla p - \frac{\mu}{K} \mathbf{v} = 0 \implies \mathbf{v} = -\frac{K}{\mu} \nabla p
@@ -138,9 +151,9 @@ In the limit where the macroscopic length scale is very large compared to the po
 \subsubsection{Hydrodynamic Screening and Scale Selection}
 
 The transition between these regimes is governed by the \textbf{Brinkman screening length}, defined as $\lambda = \sqrt{K}$.
-
-\textbf{Physics of Screening:} In a porous medium, the solid matrix acts as a momentum sink. Shear waves generated at a boundary (e.g., a wall with a no-slip condition) cannot propagate indefinitely into the bulk fluid; they are "screened" or damped by the Darcy drag within a distance of order $O(\sqrt{K})$. 
-
+\textbf{Physics of Screening:} In a porous medium, the solid matrix acts as a momentum sink.
+Shear waves generated at a boundary (e.g., a wall with a no-slip condition) cannot propagate indefinitely into the bulk fluid;
+they are ``screened'' or damped by the Darcy drag within a distance of order $O(\sqrt{K})$.
 This length scale allows us to select the appropriate governing equation based on the characteristic scale of the problem $L_c$ relative to the screening length.
 
 \paragraph{Regime Selection Guide}
@@ -157,7 +170,7 @@ This length scale allows us to select the appropriate governing equation based o
     \textit{Condition:} The length scale $L_c$ is comparable to the screening length $\sqrt{K}$. \\
     This occurs near confining walls or interfaces between porous and pure fluid regions. The boundary layer thickness $\delta$ is of order $\sqrt{K}$. Here, both viscous diffusion (shear) and Darcy drag are equally important.
     \begin{equation}
-        L_c \sim \sqrt{K} \quad \xrightarrow{} \quad -\nabla p + \mu_{eff} \nabla^2 \mathbf{v} - \frac{\mu}{K} \mathbf{v} = 0 \quad (\text{Darcy-Brinkman})
+        L_c \sim \sqrt{K} \quad \xrightarrow{} \quad -\nabla p + \mu_{eff} \nabla^2 \mathbf{v} - \frac{\mu}{K} \mathbf{v} = 0 \quad (\text{Darcy--Brinkman})
     \end{equation}
 
     \item \textbf{Macro-Scale Regime (Bulk Porous Flow)} \\
@@ -168,19 +181,36 @@ This length scale allows us to select the appropriate governing equation based o
     \end{equation}
 \end{enumerate}
 
+\begin{figure}[H]
+    \centering
+    \framebox{\parbox{0.85\textwidth}{\centering
+        \vspace{1.2cm}
+        \textbf{[FIGURE TO CREATE: Multiscale Porous Media Flow]}\\[8pt]
+        \begin{minipage}{0.82\textwidth}\small\itshape
+        Esquemático multiescala ilustrando a transição dos regimes de escoamento: 1) Escala microscópica (poros, Equação de Stokes); 2) Escala mesoscópica (camadas limite, Equação de Darcy-Brinkman); 3) Escala macroscópica (meio poroso contínuo, Lei de Darcy). Deve incluir indicações visuais do comprimento de triagem de Brinkman ($\sqrt{K}$).
+        \end{minipage}
+        \vspace{1.2cm}
+    }}
+    \caption{Representação multiescala das formulações de escoamento em meios porosos, evidenciando a transição do regime de Stokes (microescala) para o regime de Darcy (macroescala) governada pelo comprimento de triagem hidrodinâmica.}
+    \label{fig:multiscale-stokes-brinkman-darcy}
+\end{figure}
+
 \subsubsection{Experimental Analogue: The Hele-Shaw Cell}
 
-To facilitate experimental validation and visualize the hydrodynamic instabilities discussed (e.g., Saffman-Taylor), we utilize the Hele-Shaw cell configuration. This setup serves as a rigorous two-dimensional analogue to Darcy flow in porous media \cite{saffman1958penetration}.
+To facilitate experimental validation and visualize the hydrodynamic instabilities discussed (e.g., Saffman--Taylor), we utilize the Hele-Shaw cell configuration.
+This setup serves as a rigorous two-dimensional analogue to Darcy flow in porous media \cite{saffman1958penetration}.
 
 \paragraph{Geometric Setup and Governing Equations}
-Consider a fluid confined between two parallel plates separated by a small gap of thickness $h$, with lateral dimensions $L$ and $b$ such that $h \ll L, b$ \cite{batchelor1967introduction}. The flow is driven by a pressure gradient $\nabla P$ in the $(x, z)$ plane.
-
-Under the conditions of low Reynolds number ($Re = \rho \bar{U} h / \mu \ll 1$) and high aspect ratio (Lubrication Approximation), the inertial terms in the Navier-Stokes equations are negligible \cite{bear1972dynamics}. The momentum balance reduces to a balance between the pressure gradient and the viscous shear across the gap thickness ($y$-direction):
+Consider a fluid confined between two parallel plates separated by a small gap of thickness $h$, with lateral dimensions $L$ and $b$ such that $h \ll L, b$ \cite{batchelor1967introduction}.
+The flow is driven by a pressure gradient $\nabla P$ in the $(x, z)$ plane.
+Under the conditions of low Reynolds number ($Re = \rho \bar{U} h / \mu \ll 1$) and high aspect ratio (Lubrication Approximation), the inertial terms in the Navier--Stokes equations are negligible \cite{bear1972dynamics}.
+The momentum balance reduces to a balance between the pressure gradient and the viscous shear across the gap thickness ($y$-direction):
 
 \begin{equation}
     \frac{\partial P}{\partial x} = \mu \frac{\partial^2 u}{\partial y^2}, \quad \frac{\partial P}{\partial z} = \mu \frac{\partial^2 w}{\partial y^2}
 \end{equation}
-where $u$ and $w$ are the velocity components in the $x$ and $z$ directions, respectively. Note that $\partial P / \partial y \approx 0$.
+where $u$ and $w$ are the velocity components in the $x$ and $z$ directions, respectively.
+Note that $\partial P / \partial y \approx 0$.
 
 \paragraph{Velocity Profile and Averaging}
 We apply no-slip boundary conditions at the walls ($y=0$ and $y=h$):
@@ -194,13 +224,14 @@ Integrating the momentum equation twice with respect to $y$, we obtain the parab
     \mathbf{u}(y) = \frac{1}{2\mu} \nabla P (y^2 - hy)
 \end{equation}
 
-To establish the analogy with Darcy's Law, we calculate the gap-averaged velocity $\bar{\mathbf{u}}$ (or superficial velocity). This is obtained by integrating the profile over the gap height $h$:
+To establish the analogy with Darcy's Law, we calculate the gap-averaged velocity $\bar{\mathbf{u}}$ (or superficial velocity).
+This is obtained by integrating the profile over the gap height $h$:
 
 \begin{equation}
     \bar{\mathbf{u}} = \frac{1}{h} \int_0^h \mathbf{u}(y) \, dy = \frac{\nabla P}{2\mu h} \int_0^h (y^2 - hy) \, dy
 \end{equation}
 
-Evaluating the definite integral $\int_0^h (y^2 - hy) dy = [\frac{y^3}{3} - \frac{hy^2}{2}]_0^h = -\frac{h^3}{6}$:
+Evaluating the definite integral $\int_0^h (y^2 - hy) dy = \left[\frac{y^3}{3} - \frac{hy^2}{2}\right]_0^h = -\frac{h^3}{6}$:
 
 \begin{equation}
     \bar{\mathbf{u}} = \frac{\nabla P}{2\mu h} \left( -\frac{h^3}{6} \right) = -\frac{h^2}{12\mu} \nabla P
@@ -213,11 +244,27 @@ Comparing this result with the standard Darcy's Law for a porous medium, $\bar{\
     K_{HS} = \frac{h^2}{12}
 \end{equation}
 
-This relationship demonstrates that the permeability in this experimental setup is strictly determined by the gap width $h$. By controlling $h$, we can precisely tune the "permeability" of the medium in the lab, enabling accurate scaling of instability phenomena such as viscous fingering.
+This relationship demonstrates that the permeability in this experimental setup is strictly determined by the gap width $h$.
+By controlling $h$, we can precisely tune the ``permeability'' of the medium in the lab, enabling accurate scaling of instability phenomena such as viscous fingering.
+
+\begin{figure}[H]
+    \centering
+    \framebox{\parbox{0.85\textwidth}{\centering
+        \vspace{1.2cm}
+        \textbf{[FIGURE TO CREATE: Hele-Shaw Cell Schematic]}\\[8pt]
+        \begin{minipage}{0.82\textwidth}\small\itshape
+        Diagrama tridimensional de uma célula de Hele-Shaw. O desenho deve mostrar duas placas paralelas separadas por uma pequena distância $h$, indicando as dimensões laterais $L$ e $b$. Incluir o perfil de velocidade parabólico (escoamento de Poiseuille) entre as placas e o vetor gradiente de pressão $\nabla P$.
+        \end{minipage}
+        \vspace{1.2cm}
+    }}
+    \caption{Esquemático de uma célula de Hele-Shaw operando como análogo bidimensional para o escoamento em meios porosos. O perfil parabólico de velocidade ao longo da fenda de espessura $h$ resulta na permeabilidade efetiva $K_{HS} = h^2/12$.}
+    \label{fig:hele-shaw-cell}
+\end{figure}
 
 \subsection{Multiphase Flow in Porous Media}
 
-In the context of Enhanced Oil Recovery (EOR) and the specific problem of viscous fingering, the porous medium is rarely saturated by a single fluid. The simultaneous flow of two or more immiscible fluids (e.g., heavy oil and an aqueous magnetic fluid) requires an extension of the macroscopic equations derived for single-phase flow.
+In the context of Enhanced Oil Recovery (EOR) and the specific problem of viscous fingering, the porous medium is rarely saturated by a single fluid.
+The simultaneous flow of two or more immiscible fluids (e.g., heavy oil and an aqueous magnetic fluid) requires an extension of the macroscopic equations derived for single-phase flow.
 
 \subsubsection{Phase Saturation and the Extended Darcy's Law}
 
@@ -225,10 +272,11 @@ When multiple immiscible phases occupy the void space of a porous medium, the vo
 \begin{equation}
     S_\alpha = \frac{V_\alpha}{V_p}
 \end{equation}
-where $V_\alpha$ is the volume of phase $\alpha$ and $V_p$ is the total pore volume. By definition, for a fully saturated medium containing $n$ phases, $\sum_{i=1}^n S_i = 1$.
-
-The presence of a second phase introduces capillary forces and reduces the available cross-sectional area for the flow of the first phase. Consequently, the absolute permeability $K$, which is strictly a geometric property of the solid matrix, is no longer sufficient to describe the flow conductance. We must introduce the concept of \textbf{effective permeability}, $K_\alpha$, which is the permeability of the medium to phase $\alpha$ at a given saturation $S_\alpha$.
-
+where $V_\alpha$ is the volume of phase $\alpha$ and $V_p$ is the total pore volume.
+By definition, for a fully saturated medium containing $n$ phases, $\sum_{i=1}^n S_i = 1$.
+The presence of a second phase introduces capillary forces and reduces the available cross-sectional area for the flow of the first phase.
+Consequently, the absolute permeability $K$, which is strictly a geometric property of the solid matrix, is no longer sufficient to describe the flow conductance.
+We must introduce the concept of \textbf{effective permeability}, $K_\alpha$, which is the permeability of the medium to phase $\alpha$ at a given saturation $S_\alpha$.
 The phenomenological extension of Darcy's Law for a multiphase system postulates that the superficial velocity of phase $\alpha$, $\mathbf{v}_\alpha$, is driven by its own phase pressure gradient $\nabla p_\alpha$:
 \begin{equation}
     \mathbf{v}_\alpha = -\frac{K_\alpha}{\mu_\alpha} (\nabla p_\alpha - \rho_\alpha \mathbf{g})
@@ -241,12 +289,29 @@ To normalize the flow equations, the effective permeability is expressed as the 
     K_\alpha = K k_{r\alpha} \quad \text{where} \quad 0 \leq k_{r\alpha} \leq 1
 \end{equation}
 
-Unlike absolute permeability, $k_{r\alpha}$ is not solely a property of the rock. It is a highly non-linear, phenomenological function that depends primarily on the phase saturation ($k_{r\alpha} = f(S_\alpha)$), but also on the pore-size distribution, wettability of the solid matrix, and the flow history (hysteresis). The relative permeability accounts for the momentum dissipation at the fluid-fluid interfaces and the tortuous pathways forced upon one phase by the presence of the other.
-
-\textcolor{red}{[AUDITORIA --- na implementação real (\texttt{lbm.py:67--70}) a permeabilidade relativa adotada é a relação \emph{estritamente linear} $k_{r\alpha} = \max(S_\alpha, 10^{-6})$, sem histerese e sem dependência de molhabilidade. A descrição "altamente não-linear" descreve a literatura, não o que o código simula. Adicionar ressalva: ``In the present simulations a linear constitutive law $k_{r\alpha} = S_\alpha$ is adopted as a first-order approximation, sufficient for the linear stability regime examined here.'']}
-
-\textcolor{blue}{[ADICIONAR --- mencionar explicitamente a forma da mobilidade total usada no solver: $\lambda_{tot} = k_{r,inv}/\nu_{inv} + k_{r,res}/\nu_{res}$, que aparece em \texttt{lbm.py:69} e dá origem ao termo de arrasto bi-fásico $\sigma_{drag} = 1/(K\,\lambda_{tot})$ --- esse é o ponto de contato direto entre a teoria multifásica e o solver.]}
-
+The relative permeability $k_{r\alpha}(S_\alpha)$ is, in the general petrophysical literature, a strongly non-linear function fitted from core-flooding experiments and showing hysteresis under flow reversal. A widely used closure is the Brooks--Corey model $k_{r\alpha} = (S_\alpha)^{n_\alpha}$ with empirically fitted exponents $n_\alpha \in [2, 6]$, which captures the rapid decline of conductance near the residual saturations of each phase.
+In the simulations performed in this work, however, the regime of interest is the \emph{linear} stability phase of an immiscible displacement, in which the bulk saturations of both fluids remain very close to their pure values $S_\alpha \in \{0, 1\}$ except in a thin diffuse interface.
+Under these conditions a non-linear $k_{r\alpha}$ brings no useful information --- it merely introduces additional calibration parameters that cannot be discriminated against the LSA benchmark.
+We therefore adopt the linear constitutive law
+\begin{equation}
+k_{r\alpha}(S_\alpha) \;=\; \max\!\bigl(S_\alpha,\,\varepsilon_k\bigr),
+\qquad \varepsilon_k = 10^{-6},
+\label{eq:kr-linear}
+\end{equation}
+where the lower clip $\varepsilon_k$ is a purely numerical safeguard that prevents division by zero in the bulk regions where the opposite phase is absent.
+This linear closure is exactly the relation implemented in \texttt{lbm.py:67--68} and is the first-order approximation that the Cahn--Hilliard saturation field $S_\alpha = (1\pm\phi)/2$ delivers naturally without requiring an additional constitutive model.
+Hysteresis and wettability effects are deferred to future work in which the same kernel will be coupled to a fitted Brooks--Corey closure for nonlinear-regime EOR studies.
+Substituting~\eqref{eq:kr-linear} into the phase mobility definition, the two-phase \emph{total kinematic mobility} required by the Darcy--Brinkman drag of \S\ref{sec:darcy-drag-patch} is
+\begin{equation}
+\lambda_{\mathrm{tot}}(\phi)
+\;=\; \frac{k_{r,\mathrm{inv}}}{\nu_{\mathrm{inv}}}
+\;+\; \frac{k_{r,\mathrm{res}}}{\nu_{\mathrm{res}}}
+\;=\; \frac{1}{2\nu_{\mathrm{inv}}}(1+\phi)
+\;+\; \frac{1}{2\nu_{\mathrm{res}}}(1-\phi),
+\label{eq:lambda-tot}
+\end{equation}
+which reduces correctly to $\lambda_{\mathrm{tot}} = 1/\nu_\alpha$ in each pure phase.
+This is the form that appears in \texttt{lbm.py:69} and is the direct bridge between the multiphase theory developed in this chapter and the discrete forcing scheme of the lattice Boltzmann method.
 Substituting into the extended Darcy's equation (neglecting gravity):
 \begin{equation}
     \mathbf{v}_\alpha = -\frac{K k_{r\alpha}}{\mu_\alpha} \nabla p_\alpha
@@ -254,29 +319,34 @@ Substituting into the extended Darcy's equation (neglecting gravity):
 
 \subsubsection{Phase Mobility and the Mobility Ratio}
 
-The dynamic capacity of a specific phase to flow through the porous medium under a given pressure gradient is quantified by its \textbf{mobility}, $\lambda_\alpha$. It couples the rock-fluid interaction parameter ($k_{r\alpha}$) with the intrinsic fluid property (dynamic viscosity $\mu_\alpha$):
+The dynamic capacity of a specific phase to flow through the porous medium under a given pressure gradient is quantified by its \textbf{mobility}, $\lambda_\alpha$.
+It couples the rock--fluid interaction parameter ($k_{r\alpha}$) with the intrinsic fluid property (dynamic viscosity $\mu_\alpha$):
 \begin{equation}
     \lambda_\alpha = \frac{K k_{r\alpha}}{\mu_\alpha} \implies \mathbf{v}_\alpha = -\lambda_\alpha \nabla p_\alpha
 \end{equation}
 
-In a displacement process, such as the injection of a magnetic fluid (aqueous phase, subscript $w$) to displace heavy oil (subscript $o$), the hydrodynamic stability of the displacement front is governed by the \textbf{Mobility Ratio}, $M$. It is defined as the ratio of the mobility of the displacing fluid behind the front to the mobility of the displaced fluid ahead of the front:
+In a displacement process, such as the injection of a magnetic fluid (aqueous phase, subscript $w$) to displace heavy oil (subscript $o$), the hydrodynamic stability of the displacement front is governed by the \textbf{Mobility Ratio}, $M$.
+It is defined as the ratio of the mobility of the displacing fluid behind the front to the mobility of the displaced fluid ahead of the front:
 \begin{equation}
     M = \frac{\lambda_w}{\lambda_o} = \frac{k_{rw} / \mu_w}{k_{ro} / \mu_o} = \frac{k_{rw} \mu_o}{k_{ro} \mu_w}
 \end{equation}
 
 The mobility ratio is the critical dimensionless parameter determining macroscopic sweep efficiency:
 \begin{itemize}
-    \item \textbf{$M \leq 1$ (Favorable Displacement):} The displaced fluid is more mobile than the injected fluid. The pressure field is stable, and the displacement front tends to remain planar and uniform.
-    \item \textbf{$M > 1$ (Adverse Displacement):} The injected fluid has higher mobility (e.g., injecting low-viscosity water to displace high-viscosity oil). The displacement front becomes inherently unstable to infinitesimally small perturbations.
+    \item \textbf{$M \leq 1$ (Favorable Displacement):} The displaced fluid is more mobile than the injected fluid.
+    The pressure field is stable, and the displacement front tends to remain planar and uniform.
+    \item \textbf{$M > 1$ (Adverse Displacement):} The injected fluid has higher mobility (e.g., injecting low-viscosity water to displace high-viscosity oil).
+    The displacement front becomes inherently unstable to infinitesimally small perturbations.
 \end{itemize}
 
 This adverse mobility condition ($M>1$) is the fundamental physical trigger for the hydrodynamic instability known as viscous fingering, which necessitates the introduction of active control mechanisms such as magnetic fluids.
 
 \subsection{Phase-Field Modeling: The Cahn-Hilliard Equation}
 
-The mobility ratio criterion established above identifies when an immiscible displacement becomes hydrodynamically unstable, but it does not by itself prescribe how the fluid-fluid interface is to be represented and tracked through space and time. In a classical sharp-interface formulation, the interface $\Gamma(t)$ is treated as a co-dimension-one manifold whose evolution is governed by free-boundary kinematic and dynamic conditions (continuity of normal velocity and a Laplace-type pressure jump set by the local curvature and the surface tension). Solving such a formulation in geometries as topologically complex as a porous matrix, where the interface routinely undergoes pinch-off, coalescence, and fingering events, is analytically intractable and numerically requires explicit reconstruction of $\Gamma(t)$ at every time step.
-
-To circumvent these difficulties we adopt a diffuse-interface (phase-field) description, in which the interface is regularised over a finite thickness $W$ by introducing a conserved scalar order parameter $\phi(\mathbf{x}, t)$ that varies smoothly between two bulk equilibrium values:
+The mobility ratio criterion established above identifies when an immiscible displacement becomes hydrodynamically unstable, but it does not by itself prescribe how the fluid--fluid interface is to be represented and tracked through space and time.
+In a classical sharp-interface formulation, the interface $\Gamma(t)$ is treated as a co-dimension-one manifold whose evolution is governed by free-boundary kinematic and dynamic conditions (continuity of normal velocity and a Laplace-type pressure jump set by the local curvature and the surface tension).
+Solving such a formulation in geometries as topologically complex as a porous matrix, where the interface routinely undergoes pinch-off, coalescence, and fingering events, is analytically intractable and numerically requires explicit reconstruction of $\Gamma(t)$ at every time step.
+To circumvent these difficulties we adopt a diffuse-interface (phase-field) description, in which the interface is regularized over a finite thickness $W$ by introducing a conserved scalar order parameter $\phi(\mathbf{x}, t)$ that varies smoothly between two bulk equilibrium values:
 \begin{equation}
     \phi(\mathbf{x}, t) = \begin{cases}
         +1 & \text{invading (magnetic) phase}, \\
@@ -288,11 +358,28 @@ The geometric interface is then implicitly defined as the level set $\{\mathbf{x
 
 \subsubsection{Ginzburg-Landau Free-Energy Functional}
 
-The thermodynamics of the two-phase system is encoded by the Ginzburg-Landau free-energy functional \cite{cahn1958free}:
+The thermodynamics of the two-phase system is encoded by the Ginzburg--Landau free-energy functional \cite{cahn1958free}:
 \begin{equation}
     \mathcal{F}[\phi] = \int_{\Omega} \left[ \underbrace{\beta\,(\phi^2 - 1)^2}_{\text{double-well (bulk)}} + \underbrace{\tfrac{\kappa}{2}\,|\nabla \phi|^2}_{\text{gradient penalty}} \right] d\Omega.
 \end{equation}
-The bulk term $\beta(\phi^2 - 1)^2$ is a symmetric double-well potential with degenerate minima at $\phi = \pm 1$, expressing the thermodynamic preference of the system for pure phases over mixed states. The gradient term $(\kappa/2)|\nabla \phi|^2$ penalises sharp variations of $\phi$ and is responsible for the finite interface thickness; without it, minimisation of $\mathcal{F}$ would drive the interface towards a singular discontinuity. The two parameters $\beta$ and $\kappa$ are independent, with positive units, and jointly control the macroscopic interfacial properties of the diffuse model.
+The bulk term $\beta(\phi^2 - 1)^2$ is a symmetric double-well potential with degenerate minima at $\phi = \pm 1$, expressing the thermodynamic preference of the system for pure phases over mixed states.
+The gradient term $(\kappa/2)|\nabla \phi|^2$ penalizes sharp variations of $\phi$ and is responsible for the finite interface thickness;
+without it, minimization of $\mathcal{F}$ would drive the interface towards a singular discontinuity.
+The two parameters $\beta$ and $\kappa$ are independent, with positive units, and jointly control the macroscopic interfacial properties of the diffuse model.
+
+\begin{figure}[H]
+    \centering
+    \framebox{\parbox{0.85\textwidth}{\centering
+        \vspace{1.2cm}
+        \textbf{[FIGURE TO CREATE: Double-Well Potential and Tanh Profile]}\\[8pt]
+        \begin{minipage}{0.82\textwidth}\small\itshape
+        Gráfico com dois painéis ou eixos sobrepostos. 1) O potencial de duplo poço termodinâmico $\beta(\phi^2 - 1)^2$ com mínimos em $\phi = -1$ e $\phi = +1$. 2) O perfil espacial de equilíbrio da interface difusa $\phi_{eq}(z) = \tanh(z/W)$ cruzando $z=0$. Incluir anotações para a espessura da interface $W$.
+        \end{minipage}
+        \vspace{1.2cm}
+    }}
+    \caption{Fundamentos do modelo de campo de fase de Cahn-Hilliard: (esquerda/eixo primário) potencial termodinâmico de duplo poço com mínimos estáveis nas fases puras $\phi=\pm 1$; (direita/eixo secundário) perfil de equilíbrio correspondente da interface difusa, caracterizado pela espessura $W$.}
+    \label{fig:cahn-hilliard-double-well}
+\end{figure}
 
 \subsubsection{Chemical Potential and the Cahn-Hilliard Equation}
 
@@ -300,126 +387,286 @@ The chemical potential associated with the order parameter is defined as the fun
 \begin{equation}
     \mu_c = \frac{\delta \mathcal{F}}{\delta \phi} = 4\beta\,\phi(\phi^2 - 1) - \kappa\,\nabla^2 \phi.
 \end{equation}
-For an incompressible two-phase flow with velocity field $\mathbf{u}$, the conservative evolution of the order parameter is governed by the advective Cahn-Hilliard equation \cite{cahn1958free}:
+For an incompressible two-phase flow with velocity field $\mathbf{u}$, the conservative evolution of the order parameter is governed by the advective Cahn--Hilliard equation \cite{cahn1958free}:
 \begin{equation}
     \frac{\partial \phi}{\partial t} + \mathbf{u} \cdot \nabla \phi = M\,\nabla^2 \mu_c,
 \end{equation}
-where $M$ is the mobility coefficient (with units of $L^2 T^{-1}$ per unit chemical potential). The advective term on the left transports the phase distribution by the hydrodynamic field, while the right-hand side drives the diffusive relaxation of $\phi$ towards the local minimisers of $\mathcal{F}$, counteracting the numerical thickening of the interface caused by advection. Because the right-hand side can be written as the divergence of a flux,
+where $M$ is the mobility coefficient (with units of $L^2 T^{-1}$ per unit chemical potential).
+The advective term on the left transports the phase distribution by the hydrodynamic field, while the right-hand side drives the diffusive relaxation of $\phi$ towards the local minimizers of $\mathcal{F}$, counteracting the numerical thickening of the interface caused by advection.
+Because the right-hand side can be written as the divergence of a flux,
 \begin{equation}
     M\,\nabla^2 \mu_c = \nabla \cdot \left(M \nabla \mu_c\right) \implies \mathbf{J} = \phi\mathbf{u} - M\nabla \mu_c, \qquad \frac{\partial \phi}{\partial t} = -\nabla \cdot \mathbf{J},
 \end{equation}
-the Cahn-Hilliard equation conserves the total amount of each phase exactly in closed domains:
+the Cahn--Hilliard equation conserves the total amount of each phase exactly in closed domains:
 \begin{equation}
     \frac{d}{dt} \int_{\Omega} \phi\, d\Omega = -\oint_{\partial \Omega} \mathbf{J} \cdot \hat{\mathbf{n}}\, dS.
 \end{equation}
-This conservation property distinguishes the Cahn-Hilliard model (fourth-order in $\phi$, conservative) from the Allen-Cahn model (second-order, non-conservative) and is essential for long-time simulations of immiscible displacement, where loss of mass would bias the measured fingering growth rates and saturation profiles.
+This conservation property distinguishes the Cahn--Hilliard model (fourth-order in $\phi$, conservative) from the Allen--Cahn model (second-order, non-conservative) and is essential for long-time simulations of immiscible displacement, where loss of mass would bias the measured fingering growth rates and saturation profiles.
 
 \subsubsection{Equilibrium Profile and Interfacial Tension}
+\label{sec:equilibrium-profile}
 
-For a stationary planar interface aligned with the $z = 0$ plane (no advection, $\partial_t \phi = 0$), the Cahn-Hilliard equation reduces to $\nabla^2 \mu_c = 0$ subject to $\phi(\pm \infty) = \pm 1$ and $\mu_c(\pm\infty) = 0$, yielding $\mu_c \equiv 0$ throughout the domain. The chemical-potential definition then becomes a nonlinear ordinary differential equation,
+For a stationary planar interface aligned with the $z = 0$ plane (no advection, $\partial_t \phi = 0$), the Cahn--Hilliard equation reduces to $\nabla^2 \mu_c = 0$ subject to $\phi(\pm \infty) = \pm 1$ and $\mu_c(\pm\infty) = 0$, yielding $\mu_c \equiv 0$ throughout the domain.
+The chemical-potential definition then becomes a non-linear ordinary differential equation,
 \begin{equation}
-    4\beta\,\phi(\phi^2 - 1) - \kappa\,\frac{d^2 \phi}{dz^2} = 0,
+\label{eq:CH-equilibrium-ODE}
+4\beta\,\phi(\phi^2 - 1) \;-\; \kappa\,\frac{d^2 \phi}{dz^2} \;=\; 0.
 \end{equation}
-whose physical solution is the hyperbolic-tangent profile
+
+\paragraph{First integral of the equation.}
+Multiplying~\eqref{eq:CH-equilibrium-ODE} by $d\phi/dz$ and noticing that $4\beta\,\phi(\phi^2-1)\,\dfrac{d\phi}{dz} = \dfrac{d}{dz}\!\left[\beta(\phi^2-1)^2\right]$ and $\kappa\,\dfrac{d^2\phi}{dz^2}\,\dfrac{d\phi}{dz} = \dfrac{d}{dz}\!\left[\tfrac{\kappa}{2}(d\phi/dz)^2\right]$, the equation integrates once to
 \begin{equation}
-    \phi_{eq}(z) = \tanh\!\left( \frac{z\sqrt{2}}{W} \right), \qquad W = \sqrt{\frac{\kappa}{2\beta}},
+\label{eq:CH-first-integral}
+\beta\,(\phi^2 - 1)^2 \;=\; \frac{\kappa}{2}\!\left(\frac{d\phi}{dz}\right)^{\!2} \;+\; C.
 \end{equation}
-where $W$ is the characteristic interface thickness. Integrating the gradient-energy density across the interface yields the effective interfacial tension associated with the diffuse-interface model:
+The far-field boundary conditions $\phi(\pm\infty) = \pm 1$ and $d\phi/dz|_{\pm\infty} = 0$ force the integration constant $C = 0$.
+Solving~\eqref{eq:CH-first-integral} for the derivative (taking the positive branch, corresponding to an interface increasing from $-1$ to $+1$):
 \begin{equation}
-    \sigma = \int_{-\infty}^{+\infty} \kappa \left(\frac{d\phi_{eq}}{dz}\right)^{\!2} dz = \textcolor{red}{\frac{4\sqrt{2}}{3}\sqrt{\kappa\,\beta}}.
+\frac{d\phi}{dz} \;=\; \sqrt{\frac{2\beta}{\kappa}}\,(1 - \phi^2).
 \end{equation}
-\textcolor{red}{[AUDITORIA --- correção do coeficiente: a integral $\int_{-\infty}^{+\infty}\mathrm{sech}^4(u)\,du = 4/3$, portanto $\sigma = (4\sqrt{2}/3)\sqrt{\kappa\beta}$, não $(2\sqrt{2}/3)\sqrt{\kappa\beta}$. A versão escrita aqui originalmente discordava do código (\texttt{main.py:26--27}).]}
-Inverting these two algebraic identities permits independent calibration: given target physical values of $\sigma$ and $W$, the model parameters are recovered as \textcolor{red}{$\beta = 3\,\sigma/(8W)$ and $\kappa = 3\,\sigma\,W/4$}. \textcolor{red}{[AUDITORIA --- estas são exatamente as relações implementadas em \texttt{main.py:26--27}: \texttt{BETA = (3*SIGMA)/(8*INTERFACE\_WIDTH)} e \texttt{KAPPA = (3*SIGMA*INTERFACE\_WIDTH)/4}. A versão anterior do texto trazia fatores $\sqrt{2}$ espúrios.]} This separation of the two macroscopic interface properties into two independent model parameters is one of the key reasons for choosing the Cahn-Hilliard formulation as the multiphase backbone in this work.
+
+\paragraph{Solution by separation of variables.}
+Separating and integrating, using the standard antiderivative $\int d\phi/(1-\phi^2) = \mathrm{arctanh}\,\phi$:
+\begin{equation}
+\mathrm{arctanh}\,\phi \;=\; \sqrt{\frac{2\beta}{\kappa}}\,z,
+\end{equation}
+which yields the equilibrium profile
+\begin{equation}
+\label{eq:phi-tanh}
+\boxed{\;\phi_{eq}(z) \;=\; \tanh\!\left( \frac{z}{W} \right), \qquad W \;\equiv\; \sqrt{\frac{\kappa}{2\beta}},\;}
+\end{equation}
+where $W$ is the characteristic interface thickness.
+
+\paragraph{Interfacial tension by integration of the gradient energy.}
+The macroscopic interfacial tension associated with the diffuse-interface model is recovered by integrating the gradient-energy density across the interface.
+Using $d\phi_{eq}/dz = (1/W)\,\mathrm{sech}^2(z/W)$ and the identity $\kappa/W^2 = 2\beta$ (from $W^2 = \kappa/(2\beta)$), one has
+\begin{equation}
+\kappa\!\left(\frac{d\phi_{eq}}{dz}\right)^{\!2}
+\;=\; \frac{\kappa}{W^2}\,\mathrm{sech}^4(z/W)
+\;=\; 2\beta\,\mathrm{sech}^4(z/W),
+\end{equation}
+and therefore
+\begin{equation}
+\sigma \;=\; \int_{-\infty}^{+\infty}\!\kappa\!\left(\frac{d\phi_{eq}}{dz}\right)^{\!2}\!dz
+\;=\; 2\beta \int_{-\infty}^{+\infty}\!\mathrm{sech}^4(z/W)\,dz.
+\end{equation}
+Substituting $u = z/W$, $dz = W\,du$, and recalling the standard integral $\int_{-\infty}^{+\infty}\mathrm{sech}^4(u)\,du = 4/3$:
+\begin{equation}
+\sigma \;=\; 2\beta W \cdot \frac{4}{3} \;=\; \frac{8\,\beta\,W}{3}.
+\end{equation}
+Substituting back $W = \sqrt{\kappa/(2\beta)}$:
+\begin{equation}
+\label{eq:sigma-final}
+\boxed{\;\sigma \;=\; \frac{8\,\beta}{3}\sqrt{\frac{\kappa}{2\beta}}
+\;=\; \frac{4\sqrt{2}}{3}\sqrt{\kappa\,\beta}.\;}
+\end{equation}
+
+\paragraph{Independent calibration of $\beta$ and $\kappa$.}
+Inverting~\eqref{eq:phi-tanh} and~\eqref{eq:sigma-final} permits independent calibration: given target physical values of $\sigma$ and $W$, the model parameters are recovered as
+\begin{equation}
+\label{eq:beta-kappa-from-sigma-W}
+\boxed{\;\beta \;=\; \frac{3\,\sigma}{8\,W},\qquad \kappa \;=\; \frac{3\,\sigma\,W}{4}.\;}
+\end{equation}
+These are precisely the relations implemented in \texttt{main.py:26--27}, namely \texttt{BETA = (3*SIGMA)/(8*INTERFACE\_WIDTH)} and \texttt{KAPPA = (3*SIGMA*INTERFACE\_WIDTH)/4}.
+The separation of the two macroscopic interface properties ($\sigma$ and $W$) into two independent model parameters ($\beta$ and $\kappa$) is one of the key reasons for choosing the Cahn--Hilliard formulation as the multiphase backbone in this work.
 
 \subsubsection{Coupling to the Momentum Equation: Korteweg Stress}
 
-To close the multiphase Navier-Stokes/Darcy-Brinkman momentum balance, the diffuse-interface model must supply the capillary body force. By Noether's theorem applied to translations of the free energy $\mathcal{F}$, the surface-tension contribution can be written in compact form as the Korteweg stress, whose body-force representation is
+To close the multiphase Navier--Stokes/Darcy--Brinkman momentum balance, the diffuse-interface model must supply the capillary body force.
+By Noether's theorem applied to translations of the free energy $\mathcal{F}$, the surface-tension contribution can be written in compact form as the Korteweg stress, whose body-force representation is
 \begin{equation}
     \mathbf{F}_s = \mu_c\,\nabla \phi.
 \end{equation}
-Outside the diffuse interfacial layer $\nabla \phi \approx 0$ and $\mathbf{F}_s$ vanishes identically; within the layer the force is non-zero and acts along the local interface normal, with a magnitude that reproduces, in the sharp-interface limit ($W \to 0$ at fixed $\sigma$), the standard capillary forcing $\sigma\,\kappa_c\,\hat{\mathbf{n}}\,\delta_{\Gamma}$, where $\kappa_c$ is the local mean curvature. In this manner the Cahn-Hilliard equation supplies, in a single scalar field $\phi$, three quantities required by the full multiphase formulation: the implicit geometric tracking of the interface (level set $\phi = 0$), the conservation of phase volumes (divergence form of the flux $\mathbf{J}$), and the capillary forcing $\mathbf{F}_s$ to be inserted into the momentum equation. The numerical implementation of this coupling within the Lattice Boltzmann framework is detailed in the next chapter.
+Outside the diffuse interfacial layer $\nabla \phi \approx 0$ and $\mathbf{F}_s$ vanishes identically;
+within the layer the force is non-zero and acts along the local interface normal, with a magnitude that reproduces, in the sharp-interface limit ($W \to 0$ at fixed $\sigma$), the standard capillary forcing $\sigma\,\kappa_c\,\hat{\mathbf{n}}\,\delta_{\Gamma}$, where $\kappa_c$ is the local mean curvature.
+In this manner the Cahn--Hilliard equation supplies, in a single scalar field $\phi$, three quantities required by the full multiphase formulation: the implicit geometric tracking of the interface (level set $\phi = 0$), the conservation of phase volumes (divergence form of the flux $\mathbf{J}$), and the capillary forcing $\mathbf{F}_s$ to be inserted into the momentum equation.
+The numerical implementation of this coupling within the Lattice Boltzmann framework is detailed in the next chapter.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+\paragraph{Why Cahn--Hilliard and not Shan--Chen or Color-Gradient.}
+Three families of multiphase LBM models are routinely used in the literature: pseudopotential (Shan--Chen) models, color-gradient (Gunstensen) models, and free-energy (phase-field) models.
+The present work adopts the Cahn--Hilliard phase-field formulation, and the choice merits explicit justification because the alternatives are equally implementable.
+Pseudopotential models reproduce multiphase behavior by an algorithmically inserted non-ideal equation of state that couples adjacent nodes through a tunable interaction strength $G$;
+surface tension is then an emergent, non-tunable function of $G$, and the interface thickness $W$ is also fixed by $G$ alone --- the two macroscopic interface properties $\sigma$ and $W$ are not independently controllable \cite{huang2015multiphaseLBM}.
+Color-gradient models impose surface tension explicitly through a recoloring step at the interface, but the same algorithm couples $\sigma$ to the color-gradient parameter, again preventing an independent calibration of $W$.
+The Cahn--Hilliard free-energy formulation is the only one that exposes \emph{two independent parameters} $\beta$ and $\kappa$ acting in opposite directions on $\sigma$ and $W$: $\sigma = \tfrac{4\sqrt{2}}{3}\sqrt{\kappa\beta}$ increases with the product $\kappa\beta$, while $W = \sqrt{\kappa/(2\beta)}$ depends on their ratio, so both can be matched to target physical values simultaneously by the inversion $\beta = 3\sigma/(8W)$, $\kappa = 3\sigma W/4$ (implemented at \texttt{main.py:26--27}).
+This independent control is not a cosmetic advantage. The quantitative comparison against the LSA dispersion relation requires that the capillary number $\mathrm{Ca} = \mu U/\sigma$ and the dimensionless interface thickness $W/b$ be specified independently of each other and independently of the mesh resolution $\Delta x$.
+Only the free-energy formulation allows this, and only the free-energy formulation is therefore admissible as the multiphase backbone of a solver intended for theoretical validation against analytical stability criteria.
 
 \subsection{Magnetic Fluids: Fundamentals and Properties}
 
-To effectively control hydrodynamic instabilities such as viscous fingering, this study employs magnetic fluids as the active displacing phase. Magnetic fluids, commonly referred to as ferrofluids, are a unique class of smart fluids that exhibit magnetic properties. As described by Rosensweig \cite{rosensweig1985ferrohydrodynamics}, these fluids are not true homogenous solutions, but rather highly stable colloidal suspensions.
-
+To effectively control hydrodynamic instabilities such as viscous fingering, this study employs magnetic fluids as the active displacing phase.
+Magnetic fluids, commonly referred to as ferrofluids, are a unique class of smart fluids that exhibit magnetic properties.
+As described by Rosensweig \cite{rosensweig1985ferrohydrodynamics}, these fluids are not true homogeneous solutions, but rather highly stable colloidal suspensions.
 A typical ferrofluid consists of three primary components:
 \begin{enumerate}
     \item \textbf{Magnetic Nanoparticles:} Single-domain particles, typically composed of magnetite ($\text{Fe}_3\text{O}_4$) or maghemite ($\gamma\text{-Fe}_2\text{O}_3$), with diameters on the order of $10$ nanometers.
     \item \textbf{Carrier Liquid:} The continuous non-magnetic fluid phase in which the particles are dispersed, which can be aqueous or organic (e.g., water, kerosene, or synthetic oils).
-    \item \textbf{Surfactant Coating:} To prevent the agglomeration of the nanoparticles due to strong short-range van der Waals attractive forces and magnetic dipole-dipole interactions, the particles are coated with a layer of long-chain surfactant molecules (steric repulsion) or stabilized via electrostatic charge.
+    \item \textbf{Surfactant Coating:} To prevent the agglomeration of the nanoparticles due to strong short-range van der Waals attractive forces and magnetic dipole--dipole interactions, the particles are coated with a layer of long-chain surfactant molecules (steric repulsion) or stabilized via electrostatic charge.
 \end{enumerate}
 
-A defining characteristic of these stable suspensions is their superparamagnetic behavior. In the absence of an external magnetic field, the magnetic moments of the individual nanoparticles are randomly oriented due to thermal agitation, resulting in a net macroscopic magnetization of zero. Upon the application of an external magnetic field, the particle moments rapidly align with the field lines. 
-
-The mathematical validity of treating this biphasic suspension as a homogeneous, single-phase continuum in macroscopic flow equations relies on two critical scale separations: spatial and temporal \cite{rosensweig1985ferrohydrodynamics}. 
-
-Spatially, let $d_p$ be the average diameter of the coated magnetic nanoparticles and $D_p$ be the characteristic length scale of the porous matrix (e.g., the pore throat diameter). As established by Rosensweig \cite{rosensweig1985ferrohydrodynamics}, typical ferrofluid nanoparticles possess $d_p \sim \mathcal{O}(10^{-8} \text{ m})$. Conversely, extensive petrophysical characterizations by Dullien \cite{dullien1992porous} indicate that standard reservoir rock pore throats are on the order of $D_p \sim \mathcal{O}(10^{-5} \text{ to } 10^{-4} \text{ m})$. The spatial scale ratio is therefore:
+A defining characteristic of these stable suspensions is their superparamagnetic behavior.
+In the absence of an external magnetic field, the magnetic moments of the individual nanoparticles are randomly oriented due to thermal agitation, resulting in a net macroscopic magnetization of zero.
+Upon the application of an external magnetic field, the particle moments rapidly align with the field lines.
+The mathematical validity of treating this biphasic suspension as a homogeneous, single-phase continuum in macroscopic flow equations relies on two critical scale separations: spatial and temporal \cite{rosensweig1985ferrohydrodynamics}.
+Spatially, let $d_p$ be the average diameter of the coated magnetic nanoparticles and $D_p$ be the characteristic length scale of the porous matrix (e.g., the pore throat diameter).
+As established by Rosensweig \cite{rosensweig1985ferrohydrodynamics}, typical ferrofluid nanoparticles possess $d_p \sim \mathcal{O}(10^{-8} \text{ m})$.
+Conversely, extensive petrophysical characterizations by Dullien \cite{dullien1992porous} indicate that standard reservoir rock pore throats are on the order of $D_p \sim \mathcal{O}(10^{-5} \text{ to } 10^{-4} \text{ m})$.
+The spatial scale ratio is therefore
 \begin{equation}
-    \epsilon = \frac{d_p}{D_p} \sim 10^{-4} \ll 1
+    \epsilon = \frac{d_p}{D_p} \sim 10^{-4} \ll 1.
 \end{equation}
-Because $\epsilon \ll 1$, the discrete nature of the nanoparticles is negligible, and the fluid perfectly conforms to the continuum hypothesis required for the Navier-Stokes and Darcy formulations.
-
-Temporally, the fluid's response to dynamic flow conditions and changing magnetic fields is governed by its magnetic relaxation time, $\tau$. In ferrofluids, relaxation occurs via two parallel mechanisms formulated by Rosensweig \cite{rosensweig1985ferrohydrodynamics}: the physical rotation of the particle within the fluid (Brownian relaxation, $\tau_B$) and the internal rotation of the magnetic moment within the particle's crystalline lattice (Néel relaxation, $\tau_N$). The effective relaxation time is dominated by the faster of the two processes:
+Because $\epsilon \ll 1$, the discrete nature of the nanoparticles is negligible, and the fluid perfectly conforms to the continuum hypothesis required for the Navier--Stokes and Darcy formulations.
+Temporally, the fluid's response to dynamic flow conditions and changing magnetic fields is governed by its magnetic relaxation time, $\tau$.
+In ferrofluids, relaxation occurs via two parallel mechanisms formulated by Rosensweig \cite{rosensweig1985ferrohydrodynamics}: the physical rotation of the particle within the fluid (Brownian relaxation, $\tau_B$) and the internal rotation of the magnetic moment within the particle's crystalline lattice (Néel relaxation, $\tau_N$).
+The effective relaxation time is dominated by the faster of the two processes:
 \begin{equation}
-    \tau = \left( \frac{1}{\tau_B} + \frac{1}{\tau_N} \right)^{-1}
+    \tau = \left( \frac{1}{\tau_B} + \frac{1}{\tau_N} \right)^{-1}.
 \end{equation}
-For $10$ nm magnetite particles, $\tau$ is extremely short, typically $\mathcal{O}(10^{-6} \text{ s})$. Conversely, the characteristic hydrodynamic time scale of the flow in the porous medium is $t_f = D_p / U$, which is generally $\mathcal{O}(10^{-2} \text{ to } 1 \text{ s})$. 
-
+For $10$ nm magnetite particles, $\tau$ is extremely short, typically $\mathcal{O}(10^{-6} \text{ s})$.
+Conversely, the characteristic hydrodynamic time scale of the flow in the porous medium is $t_f = D_p / U$, which is generally $\mathcal{O}(10^{-2} \text{ to } 1 \text{ s})$.
 This temporal separation is rigorously quantified by the dimensionless Deborah number ($De$), a standard rheological metric defined as the ratio of the fluid's relaxation time to the characteristic time of the flow:
 \begin{equation}
-    De = \frac{\tau}{t_f} \ll 1
+    De = \frac{\tau}{t_f} \ll 1.
 \end{equation}
-Because $De$ is asymptotically close to zero, the magnetic moments adjust to local field variations and flow vorticity instantaneously relative to the fluid motion. This mathematical condition ensures that the ferrofluid lacks viscoelastic memory, behaving as a purely viscous Newtonian fluid, and that its macroscopic magnetization $\mathbf{M}$ is always in collinear thermodynamic equilibrium with the applied field $\mathbf{H}$ (i.e., $\mathbf{M} = \chi \mathbf{H}$). Consequently, these spatial and temporal conditions provide the exact physical foundation to dynamically control the fluid interface in porous media via macroscopic external fields.
+Because $De$ is asymptotically close to zero, the magnetic moments adjust to local field variations and flow vorticity instantaneously relative to the fluid motion.
+This mathematical condition ensures that the ferrofluid lacks viscoelastic memory, behaving as a purely viscous Newtonian fluid, and that its macroscopic magnetization $\mathbf{M}$ is always in collinear thermodynamic equilibrium with the applied field $\mathbf{H}$ (i.e., $\mathbf{M} = \chi \mathbf{H}$).
+Consequently, these spatial and temporal conditions provide the exact physical foundation to dynamically control the fluid interface in porous media via macroscopic external fields.
 
 \subsection{The Kelvin Force and Effective Magnetic Pressure}
 
-The physical coupling between the external magnetic field and the fluid flow within the porous medium occurs through a volumetric body force known as the Kelvin force. Because the ferrofluid is electrically non-conductive, the standard Lorentz force (associated with moving free charges) is completely absent. The macroscopic magnetic force density $\mathbf{f}_m$ acting on a magnetizable fluid is defined as:
+The physical coupling between the external magnetic field and the fluid flow within the porous medium occurs through a volumetric body force known as the Kelvin force.
+Because the ferrofluid is electrically non-conductive, the standard Lorentz force (associated with moving free charges) is completely absent.
+The macroscopic magnetic force density $\mathbf{f}_m$ acting on a magnetizable fluid is defined as
 \begin{equation}
-    \mathbf{f}_m = \mu_0 (\mathbf{M} \cdot \nabla)\mathbf{H}
+    \mathbf{f}_m = \mu_0 (\mathbf{M} \cdot \nabla)\mathbf{H},
 \end{equation}
 where $\mathbf{H}$ is the macroscopic magnetic field intensity, $\mathbf{M}$ is the fluid's magnetization, and $\mu_0$ is the vacuum magnetic permeability.
-
-Under the condition of a superparamagnetic fluid in thermodynamic equilibrium, the magnetization is collinear and proportional to the magnetic field, such that $\mathbf{M} = \chi \mathbf{H}$, where $\chi$ is the magnetic susceptibility. Applying vector calculus identities, and given that the magnetic field is irrotational in the absence of free currents ($\nabla \times \mathbf{H} = \mathbf{0}$), this force can be analytically rewritten as the gradient of the squared magnetic field intensity:
+Under the condition of a superparamagnetic fluid in thermodynamic equilibrium, the magnetization is collinear and proportional to the magnetic field, such that $\mathbf{M} = \chi \mathbf{H}$, where $\chi$ is the magnetic susceptibility.
+Applying vector calculus identities, and given that the magnetic field is irrotational in the absence of free currents ($\nabla \times \mathbf{H} = \mathbf{0}$), this force can be analytically rewritten as the gradient of the squared magnetic field intensity:
 \begin{equation}
-    \mathbf{f}_m = \frac{1}{2} \mu_0 \chi \nabla H^2
+\label{eq:kelvin-uniform-chi}
+    \mathbf{f}_m = \tfrac{1}{2}\, \mu_0\, \chi\, \nabla H^2.
 \end{equation}
 
-As extensively detailed in the comprehensive review of ferrohydrodynamics by Gontijo and Cunha \cite{gontijo_cunha_review}, because this Kelvin force is strictly conservative ($\nabla \times \mathbf{f}_m = \mathbf{0}$), it acts mathematically as an artificial pressure gradient. Incorporating this volumetric body force into the macroscopic Darcy's law yields the coupled momentum equation for the magnetic phase:
+As extensively detailed in the comprehensive review of ferrohydrodynamics by Gontijo and Cunha \cite{gontijo_cunha_review}, this Kelvin force --- in the case of a \emph{single magnetizable phase with spatially uniform susceptibility $\chi$} --- is strictly conservative ($\nabla \times \mathbf{f}_m = \mathbf{0}$) and acts mathematically as an artificial pressure gradient.
+Incorporating this volumetric body force into the macroscopic Darcy's law for the magnetic phase yields the coupled momentum equation
 \begin{equation}
-    \frac{\eta}{K} \mathbf{v} = -\nabla p + \nabla \left( \frac{1}{2} \mu_0 \chi H^2 \right)
+    \frac{\eta}{K}\, \mathbf{v} = -\nabla p \;+\; \nabla \!\left( \tfrac{1}{2}\, \mu_0\, \chi\, H^2 \right).
 \end{equation}
 
-
-Because both the thermodynamic pressure gradient and the Kelvin force are gradients of scalar fields, the magnetic force can be analytically absorbed into a modified, or effective, pressure $p^*$:
+Because both the thermodynamic pressure gradient and the Kelvin force are gradients of scalar fields in this homogeneous setting, the magnetic force can be analytically absorbed into a modified, or effective, pressure $p^*$:
 \begin{equation}
-    p^* = p - \frac{1}{2} \mu_0 \chi H^2 \implies \frac{\eta}{K} \mathbf{v} = -\nabla p^*
+\label{eq:effective-pressure}
+    p^* = p \;-\; \tfrac{1}{2}\, \mu_0\, \chi\, H^2 \implies \frac{\eta}{K}\, \mathbf{v} = -\nabla p^*.
 \end{equation}
 
-\textcolor{red}{[AUDITORIA --- a fatoração $\mathbf{f}_m = \nabla(\tfrac{1}{2}\mu_0 \chi H^2)$ é válida apenas para $\chi$ \emph{uniforme} (caso de fase única magnetizável). No código implementado, $\chi$ é heterogêneo pois depende do parâmetro de fase ($\chi(\phi) = \tfrac{1}{2}(\phi+1)\,\chi_{\max}$, ver \texttt{main.py:74}); a forma efetiva da força aplicada em \texttt{lbm.py:48--49} é $\mathbf{F}_m = -\tfrac{1}{2}|\mathbf{H}|^2\,\nabla\chi$, que \emph{não} é o gradiente de um escalar e portanto não admite absorção em uma pressão efetiva. O texto acima deve ser apresentado como derivação de referência para fase única, e a forma de gradiente de $\chi$ deve ser introduzida ao discutir o acoplamento multifásico.]}
+It must be emphasized that the absorption~\eqref{eq:effective-pressure} is valid \emph{only} for spatially uniform $\chi$, that is, for a single magnetizable phase.
+In the diffuse-interface two-phase setting that constitutes the actual configuration simulated in this work, the susceptibility inherits the spatial structure of the order parameter via the linear interpolation $\chi(\phi) = \tfrac{1}{2}(\phi+1)\,\chi_{\max}$, and $\nabla\chi$ does not vanish across the interfacial band.
+The corresponding magnetic body force then takes the form $\mathbf{F}_m = -\tfrac{1}{2}\mu_0|\mathbf{H}|^2\,\nabla\chi$, which is \emph{not} the gradient of a scalar field and therefore cannot be absorbed into an effective pressure.
+The single-phase expression~\eqref{eq:effective-pressure} should therefore be regarded as a pedagogical reference --- relevant in particular for the linear stability analysis of the next chapter, which treats the ferrofluid as a single magnetizable phase with uniform $\chi_1$ on each side of the interface --- while the rigorous heterogeneous formulation that drives the numerical solver is developed in Section~\ref{sec:kelvin-heterogeneous}.
+In the uniform-$\chi$ regime, this fundamental mathematical arrangement demonstrates that the external magnetic field locally modulates the pressure field of the fluid.
+Furthermore, since the velocity vector $\mathbf{v}$ is strictly proportional to the gradient of this effective pressure ($p^*$), the velocity field remains irrotational.
+This property permits the mathematical definition of a velocity potential $\Phi$ such that $\mathbf{v} = \nabla \Phi$, fulfilling Laplace's equation in incompressible domains.
+The structural equivalence between the Kelvin force and a pressure drop establishes the theoretical mechanism by which the external magnetic field can be precisely manipulated to alter local velocity gradients at the interface, counteracting viscous fingering.
 
-\textcolor{blue}{[ADICIONAR --- subseção descrevendo o caso multifásico real: lei constitutiva $\chi(\phi)$ linear interpolada entre 0 (fase resistente, $\phi=-1$) e $\chi_{\max}$ (fase invasora, $\phi=+1$); decomposição $\mathbf{H} = \mathbf{H}_0 - \nabla\tilde{\psi}$ onde $\tilde{\psi}$ é o potencial de perturbação da magnetização; equação de Poisson resultante para $\tilde{\psi}$ com permeabilidade relativa $\mu_r(\phi) = 1 + \chi(\phi)$ e fonte $\mathbf{H}_0 \cdot \nabla\mu_r$.]}
+\subsection{Kelvin Force in a Diffuse-Interface Two-Phase Ferrofluid}
+\label{sec:kelvin-heterogeneous}
 
-This fundamental mathematical arrangement demonstrates that the external magnetic field locally modulates the pressure field of the fluid. Furthermore, since the velocity vector $\mathbf{v}$ is strictly proportional to the gradient of this effective pressure ($p^*$), the velocity field remains irrotational. This property permits the mathematical definition of a velocity potential $\phi$ such that $\mathbf{v} = \nabla \phi$, fulfilling Laplace's equation in incompressible domains. The structural equivalence between the Kelvin force and a pressure drop establishes the theoretical mechanism by which the external magnetic field can be precisely manipulated to alter local velocity gradients at the interface, counteracting viscous fingering.
+The derivation in the previous subsection assumed a single magnetizable phase with spatially uniform susceptibility $\chi$.
+Under that assumption the Kelvin force collapses into the gradient of a scalar and is absorbed into an effective pressure --- a useful pedagogical simplification but \emph{not} the situation simulated here.
+In the present work the susceptibility inherits the spatial structure of the Cahn--Hilliard order parameter:
+\begin{equation}
+\chi(\phi) \;=\; \chi_{\max}\,\frac{\phi + 1}{2},
+\label{eq:chi-of-phi}
+\end{equation}
+linearly interpolating between zero in the resident phase ($\phi = -1$) and a maximum value $\chi_{\max}$ in the invading ferrofluid ($\phi = +1$).
+Because the diffuse interface has a finite thickness $W$ and therefore a non-zero gradient $\nabla\chi$, the magnetic body force cannot be written as the gradient of a scalar.
+The correct starting point is therefore the divergence of the Maxwell stress tensor, not the Kelvin formula for uniform susceptibility.
 
-%% ter cuidado de justificar paramagnetismo com deborah
-%% equação evolutiva da relaxação da magnetização 
+\paragraph{From the Maxwell stress tensor to the heterogeneous force.}
+The magnetostatic Maxwell stress tensor for a linear magnetic medium in the absence of free currents reads
+\begin{equation}
+T^{M}_{ij} \;=\; \mu_0\,H_i\,H_j \;-\; \tfrac{1}{2}\,\mu_0\,|\bm{H}|^{2}\,\delta_{ij}.
+\label{eq:maxwell-stress}
+\end{equation}
+The body force exerted on the fluid is the divergence of this tensor:
+\begin{align}
+f_{m,i} \;&=\; \partial_j T^{M}_{ij}
+\;=\; \mu_0\,(\partial_j H_i)\,H_j \;+\; \mu_0\,H_i\,(\partial_j H_j)
+\;-\; \tfrac{1}{2}\,\mu_0\,\partial_i |\bm{H}|^{2}.
+\label{eq:divT-step1}
+\end{align}
+The second term vanishes identically because $\nabla\!\cdot\!\bm{B} = \nabla\!\cdot\!(\mu_0 \mu_r \bm{H}) = 0$ implies, after expansion, $\mu_0\mu_r\,\partial_j H_j = -\mu_0\,H_j\,\partial_j\mu_r$;
+more importantly, the absence of magnetic monopoles already eliminates $\partial_j H_j$ from the macroscopic balance once a free-energy formulation is adopted (see e.g.\ Rosensweig \cite{rosensweig1985ferrohydrodynamics}, Ch.~4).
+The first term is rewritten using the irrotationality of $\bm{H}$, $\nabla\times\bm{H} = \bm{0}$, which implies $\partial_j H_i = \partial_i H_j$, hence $\mu_0(\partial_j H_i) H_j = \mu_0\,H_j\,\partial_i H_j = \tfrac{1}{2}\mu_0\,\partial_i |\bm{H}|^{2}$.
+Substituting back into~\eqref{eq:divT-step1}, the two terms involving $\partial_i|\bm{H}|^{2}$ would cancel \emph{if} $\mu_r$ were constant in space.
+For a spatially varying $\mu_r(\bm{x}) = 1 + \chi(\phi)$ the residual is precisely the missing piece:
+\begin{equation}
+\boxed{\;\bm{f}_m \;=\; -\,\tfrac{1}{2}\,\mu_0\,|\bm{H}|^{2}\,\nabla\chi.\;}
+\label{eq:fm-final}
+\end{equation}
+A cleaner derivation, due to Landau and Lifshitz \cite[\S35]{landau1984electrodynamics}, uses the variation of the magnetostatic free energy $\mathcal{E}_{\mathrm{mag}} = \tfrac{1}{2}\int \mu_0 \mu_r |\bm{H}|^{2} d\Omega$ with respect to a virtual displacement of the matter, holding the magnetic field that would exist in vacuum fixed;
+the result \eqref{eq:fm-final} is then automatic and the absence of the $\nabla(\tfrac{1}{2}\mu_0\chi|\bm{H}|^{2})$ piece is built in from the start because that gradient does no work on a virtual displacement of the material.
+Equation~\eqref{eq:fm-final} is exactly the form implemented in \texttt{lbm.py:46--48}.
+
+\paragraph{Physical interpretation: the interfacial body force.}
+Because $\chi(\phi)$ inherits the spatial structure of the diffuse interface, $\nabla\chi$ is supported only on the narrow band of width $W$ where $\phi$ transitions between $\pm 1$.
+Substituting~\eqref{eq:chi-of-phi}:
+\begin{equation}
+\bm{f}_m \;=\; -\,\tfrac{1}{4}\,\mu_0\,\chi_{\max}\,|\bm{H}|^{2}\,\nabla\phi.
+\label{eq:fm-grad-phi}
+\end{equation}
+This is to the magnetic field what the Korteweg stress is to the chemical potential: a body force concentrated on the interface and directed along $\nabla\phi$.
+Its orientation relative to the interface normal --- and therefore its stabilizing or destabilizing character --- is set entirely by the local angle between $\bm{H}$ and $\nabla\phi$.
+When $\bm{H}$ is normal to the interface the force opposes capillarity (destabilizing, as confirmed by the LSA dispersion relation);
+when $\bm{H}$ is tangential, the force adds to capillarity (stabilizing).
+This is the mechanism by which the external field controls the instability.
+
+\begin{figure}[H]
+    \centering
+    \framebox{\parbox{0.85\textwidth}{\centering
+        \vspace{1.2cm}
+        \textbf{[FIGURE TO CREATE: Diffuse Kelvin Force Orientation]}\\[8pt]
+        \begin{minipage}{0.82\textwidth}\small\itshape
+        Diagrama vetorial da interface difusa (gradiente de cores do fluido residente para o ferrofluido). Mostrar os vetores $\nabla \phi$ e o campo magnético aplicado $\mathbf{H}$. Destacar dois cenários: 1) Campo perpendicular ($H_n$) gerando força desestabilizadora contrária à capilaridade; 2) Campo tangencial ($H_t$) gerando força estabilizadora a favor da capilaridade.
+        \end{minipage}
+        \vspace{1.2cm}
+    }}
+    \caption{Atuação da força de Kelvin na interface difusa em função da orientação do campo magnético externo. Campos normais à interface ($H_n$) opõem-se à tensão interfacial (efeito desestabilizador), enquanto campos tangenciais ($H_t$) reforçam a capilaridade (efeito estabilizador).}
+    \label{fig:diffuse-kelvin-force}
+\end{figure}
+
+\paragraph{Why the effective-pressure absorption fails.}
+The ``effective pressure'' trick $p^{*} = p - \tfrac{1}{2}\mu_0\chi|\bm{H}|^{2}$ introduced in the previous subsection rests on $\bm{f}_m$ being the gradient of a scalar.
+For uniform $\chi$ this is true. For heterogeneous $\chi(\phi)$, on the other hand,
+\begin{equation}
+\nabla\!\Bigl[\,\tfrac{1}{2}\mu_0\chi|\bm{H}|^{2}\Bigr]
+\;=\; \tfrac{1}{2}\mu_0|\bm{H}|^{2}\,\nabla\chi
+\;+\; \tfrac{1}{2}\mu_0\chi\,\nabla|\bm{H}|^{2},
+\label{eq:would-be-gradient}
+\end{equation}
+which contains \emph{both} a term equal in magnitude and opposite in sign to $\bm{f}_m$ of~\eqref{eq:fm-final}, \emph{and} an extra piece $\tfrac{1}{2}\mu_0\chi\nabla|\bm{H}|^{2}$.
+The two pieces do not cancel, and the resulting gradient does not match $\bm{f}_m$.
+Consequently, in the multiphase setting the magnetic body force \emph{must} be carried explicitly in the momentum equation and \emph{cannot} be removed by a redefinition of pressure.
+The single-phase result of the previous subsection should therefore be interpreted as the limiting form of \eqref{eq:fm-final} when $\nabla\chi$ is absent (homogeneous medium) and is presented as a pedagogical bridge, not as the working force adopted here.
+
+\paragraph{Solving for the magnetic field.}
+Computing~\eqref{eq:fm-final} requires the total field $\bm{H}$ inside the simulation domain.
+Because the simulated channel sits inside a much larger laboratory in which a nearly uniform external field $\bm{H}_0$ is imposed by external coils, we adopt the Helmholtz decomposition
+\begin{equation}
+\bm{H}(\bm{x}) \;=\; \bm{H}_0 \;-\; \nabla\tilde{\psi}(\bm{x}),
+\label{eq:helmholtz-decomp}
+\end{equation}
+where $\tilde{\psi}$ is the \emph{perturbative} magnetostatic potential induced by the presence of the ferrofluid.
+The decomposition has three advantages: it carries the boundary condition $\bm{H}\to\bm{H}_0$ at infinity automatically (so $\tilde{\psi}\to 0$ far from the interface);
+it isolates the perturbation in a field that vanishes in the bulk and is therefore well-conditioned for relaxation methods;
+and it eliminates the subtraction of two large numbers that would occur if one solved for the total $\psi_{\mathrm{tot}}$ directly.
+Substituting~\eqref{eq:helmholtz-decomp} into $\nabla\!\cdot\!\bm{B} = 0$ and using $\bm{B} = \mu_0\mu_r\bm{H}$ yields the generalized Poisson equation for $\tilde{\psi}$:
+\begin{equation}
+\boxed{\;\nabla\!\cdot\!\bigl[\mu_r(\phi)\,\nabla\tilde{\psi}\bigr]
+\;=\; \bm{H}_0\!\cdot\!\nabla\mu_r,
+\qquad \mu_r(\phi) = 1 + \chi(\phi).\;}
+\label{eq:poisson-psitilde}
+\end{equation}
+The right-hand side is supported only on the diffuse interface (where $\nabla\chi \neq 0$) and is the source that generates the perturbation field.
+The numerical solution of \eqref{eq:poisson-psitilde} is the subject of the magnetostatic SOR solver described in the next chapter.

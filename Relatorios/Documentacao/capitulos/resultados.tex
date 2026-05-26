@@ -1,3 +1,102 @@
 \section{Results}
 
-% TODO: preencher resultados das simulações LBM e comparação com a análise LSA.
+Having validated the hydrodynamic (Poiseuille) and porous (Darcy--Brinkman) branches of the kernel in the previous section, this section assesses the central physical claim of the work: that the lattice-Boltzmann solver reproduces the \emph{growth rate} of an interfacial perturbation predicted by the linear stability analysis (LSA) of Section~\ref{sec:lsa}. The comparison is performed in the asymptotic linear regime, where the interface amplitude is small enough that the dispersion relation~\eqref{eq:dispersion_nondim} holds, and is carried out for a sweep of phase-field resolutions and initial amplitudes in order to characterise the numerical conditions under which the analytical prediction is recovered.
+
+\subsection{Numerical Extraction of the Interfacial Growth Rate}
+\label{sec:growth_rate_method}
+
+The quantity to be compared with the LSA is the temporal growth rate $s$ of a single sinusoidal interface mode of order $m$. Its extraction from the raw simulation snapshots follows a four-stage pipeline (implemented in \texttt{post\_process/valida\_lsa.py} and batched over all cases by \texttt{post\_process/extrai\_resultados\_lsa.py}).
+
+\paragraph{(i) Sub-cell interface localisation.} For each saved snapshot, the interface position $x(y)$ is located row by row as the zero crossing of the phase field $\phi$. Rather than snapping to the nearest cell, the crossing is resolved with sub-cell accuracy by linear interpolation between the two straddling nodes,
+\begin{equation}
+    x(y) = x_l + \frac{\phi_l}{\phi_l - \phi_r}, \qquad \phi_l = \phi(y,x_l) > 0,\ \ \phi_r = \phi(y,x_{l+1}) < 0,
+\end{equation}
+which suppresses the staircase quantisation error that would otherwise contaminate the amplitude of low-amplitude modes.
+
+\paragraph{(ii) Modal amplitude by Fourier projection.} The amplitude of the target mode $m$ is obtained by projecting the interface contour onto the corresponding harmonic, rather than by a peak-to-valley ($\max-\min$) measurement. This isolates the mode of interest from numerical noise and from spurious higher harmonics:
+\begin{equation}
+    A_m(t) = \frac{2}{N_y}\left| \sum_{y=0}^{N_y-1} x(y,t)\,e^{-2\pi i\,m\,y/N_y} \right|.
+    \label{eq:fourier_amplitude}
+\end{equation}
+
+\paragraph{(iii) Identification of the linear window.} Linear theory predicts pure exponential growth, $A_m(t) = A_0\,e^{s t}$, only during a finite interval bounded below by the initial diffusive relaxation of the interface and above by the onset of nonlinear saturation (finger formation). To select this interval objectively, the instantaneous growth rate $s_{\mathrm{loc}}(t) = \mathrm{d}\ln A_m/\mathrm{d}t$ is computed by a local linear regression over a sliding $\pm k$-point window, and the fitting interval $[t_0,t_1]$ is taken as the contiguous plateau around the peak of $s_{\mathrm{loc}}$ where $|s_{\mathrm{loc}} - s_{\mathrm{peak}}|/s_{\mathrm{peak}} \le \mathrm{tol}$, with the tolerance relaxed in steps ($4\% \to 20\%$) until at least six points are captured. This removes operator bias from the choice of fitting window.
+
+\paragraph{(iv) Fit and non-dimensionalisation.} The numerical growth rate $s_{\mathrm{num}}$ is the slope of a least-squares fit of $\ln A_m$ against $t$ over the linear window. It is rendered dimensionless using the same scaling as the LSA, namely the domain height $L_{\mathrm{ref}} = N_y$ as the length scale and the inlet velocity $U = U_{\mathrm{in}}$ as the velocity scale:
+\begin{equation}
+    \zeta_{\mathrm{num}} = s_{\mathrm{num}}\,\frac{L_{\mathrm{ref}}}{U}, \qquad \alpha = k\,L_{\mathrm{ref}} = 2\pi m .
+    \label{eq:zeta_num}
+\end{equation}
+The analytical counterpart $\zeta_{\mathrm{ana}}$ is evaluated directly from the dimensionless dispersion relation~\eqref{eq:dispersion_nondim} at the simulated wavenumber $\alpha = 2\pi m$, and the agreement is quantified by the relative error $\varepsilon = |s_{\mathrm{num}} - s_{\mathrm{ana}}|/|s_{\mathrm{ana}}|$.
+
+\subsection{Simulation Matrix}
+\label{sec:sim_matrix}
+
+All cases share the same target physical regime: a single fundamental mode ($m = 1$, $\alpha = 2\pi$), viscosity ratio $M = \mu_2/\mu_1 = 4$, Darcy number $\mathrm{Da} = K_0/N_y^2 \approx 1.25\times10^{-4}$, capillary number $\mathrm{Ca} = \nu_1 U/\sigma = 0.25$, and no magnetic forcing ($\mathrm{Ca}_m = 0$, $\mathrm{Bo} = 0$). Under these parameters the dispersion relation~\eqref{eq:dispersion_nondim} predicts a single positive (unstable) growth rate
+\begin{equation}
+    \zeta_{\mathrm{ana}} = \alpha\,\frac{M-1}{M+1} - \frac{\mathrm{Da}}{\mathrm{Ca}\,(1+M)}\,\alpha^3
+    = \underbrace{3.770}_{\text{viscous}} \;-\; \underbrace{0.025}_{\text{capillary}} \;\approx\; 3.745 ,
+    \label{eq:zeta_target}
+\end{equation}
+so the long-wave instability at $m=1$ is overwhelmingly viscous-driven, the capillary correction amounting to less than $1\%$ of the total. This is the single analytical target against which every simulation is compared.
+
+The simulations are organised in three groups that vary the numerical resolution of the interface while holding the physics fixed:
+\begin{itemize}
+    \item \textbf{Group AB} ($N_y = 800$): a sweep of the diffuse-interface thickness $W \in \{1,2,4\}$ lattice units at fixed relative amplitude $A_0 = W/5$, isolating the effect of interface resolution (the phase-field number $k\xi = 2\pi m W/N_y$).
+    \item \textbf{Group AC} ($N_y = 1024$): a refined-grid cross-sweep of thickness $W \in \{3,4\}$ and initial amplitude $A_0 \in \{W/10,\,W/5\}$, separating the influence of interface thickness from that of the initial perturbation amplitude.
+    \item \textbf{Group AD} ($N_y = 1024$, $W = 3$): control variants probing robustness --- a reduced-mobility configuration (\texttt{Mlow}), a linearised-viscosity variant (\texttt{linvisc}), and a very small initial amplitude ($A_0 = W/20 = 0.15$ lu).
+\end{itemize}
+
+\subsection{Comparison with the Linear Dispersion Relation}
+\label{sec:lsa_comparison}
+
+Table~\ref{tab:comparacao_lsa} reports, for every case, the numerically extracted growth rate alongside the analytical prediction. Because the dimensionless target $\zeta_{\mathrm{ana}} \approx 3.745$ is grid-independent, the dimensionless rate $\zeta$ is the natural basis for comparison; the dimensional $s$ differs between groups only through the scaling $s = \zeta\,U/N_y$.
+
+\begin{table}[!ht]
+\centering
+\caption{Comparison between the numerically extracted interfacial growth rate (LBM) and the linear stability prediction (LSA, Eq.~\eqref{eq:dispersion_nondim}), for $m=1$, $M=4$, $\mathrm{Da}\approx1.25\times10^{-4}$, $\mathrm{Ca}=0.25$. Here $W$ is the diffuse-interface width and $A_0$ the initial amplitude (lattice units), $k\xi = 2\pi m W/N_y$ is the phase-field resolution number, $\zeta = s\,N_y/U$ is the dimensionless growth rate, $\varepsilon$ is the relative error on $s$, and $R^2$ is the goodness of fit of the log-linear regression over the identified linear window.}
+\label{tab:comparacao_lsa}
+\small
+\begin{tabular}{l c c c c c c c}
+\hline
+Case & $W$ & $A_0$ & $k\xi$ & $\zeta_{\mathrm{num}}$ & $\zeta_{\mathrm{ana}}$ & $\varepsilon$ (\%) & $R^2$ \\
+\hline
+\multicolumn{8}{l}{\textit{Group AB --- interface thickness sweep ($N_y = 800$)}}\\
+AB, $W{=}1$        & 1 & 0.20 & 0.0079 & 5.391 & 3.745 & 43.9 & 0.749 \\
+AB, $W{=}2$        & 2 & 0.40 & 0.0157 & 3.668 & 3.745 &  2.1 & 0.994 \\
+AB, $W{=}4$        & 4 & 0.80 & 0.0314 & 3.530 & 3.745 &  5.7 & 1.000 \\
+\hline
+\multicolumn{8}{l}{\textit{Group AC --- thickness $\times$ amplitude cross-sweep ($N_y = 1024$)}}\\
+AC, $W{=}3$, $A_0{=}W/10$ & 3 & 0.30 & 0.0184 & 3.914 & 3.745 &  4.5 & 0.953 \\
+AC, $W{=}3$, $A_0{=}W/5$  & 3 & 0.60 & 0.0184 & 3.502 & 3.745 &  6.5 & 1.000 \\
+AC, $W{=}4$, $A_0{=}W/10$ & 4 & 0.40 & 0.0245 & 3.661 & 3.745 &  2.2 & 0.998 \\
+AC, $W{=}4$, $A_0{=}W/5$  & 4 & 0.80 & 0.0245 & 3.493 & 3.745 &  6.7 & 1.000 \\
+\hline
+\multicolumn{8}{l}{\textit{Group AD --- robustness variants ($N_y = 1024$, $W = 3$)}}\\
+AD, \texttt{Mlow}     & 3 & 0.30 & 0.0184 & 3.875 & 3.745 &  3.5 & 0.958 \\
+AD, \texttt{linvisc}  & 3 & 0.30 & 0.0184 & 3.903 & 3.745 &  4.2 & 0.952 \\
+AD, $A_0{=}W/20$      & 3 & 0.15 & 0.0184 & 5.012 & 3.745 & 33.8 & 0.731 \\
+\hline
+\end{tabular}
+\end{table}
+
+Figure~\ref{fig:comparacao_lsa} illustrates the comparison for a representative well-resolved case. The left panel shows the measured amplitude $A_m(t)$ on a semi-logarithmic scale, the fitted exponential, and the analytical slope anchored at the first valid point; the shaded band marks the automatically identified linear window. The right panel places the numerical and analytical rates on the analytical dispersion curve $\zeta(\alpha)$ at the simulated wavenumber $\alpha = 2\pi$.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figuras/validacao_lbm/comparacao_lsa_W4amp10.png}
+    \caption{Representative LBM--LSA comparison (Group AC, $W=4$, $A_0 = W/10$). \textbf{Left:} interfacial amplitude $A_m(t)$ extracted by Fourier projection (markers), the exponential fit over the identified linear window (solid), and the analytical growth (dashed). \textbf{Right:} the dimensionless dispersion relation $\zeta(\alpha)$ with the numerical ($\zeta_{\mathrm{num}}$) and analytical ($\zeta_{\mathrm{ana}}$) rates marked at $\alpha = 2\pi$.}
+    \label{fig:comparacao_lsa}
+\end{figure}
+
+\subsection{Error Analysis and Convergence}
+\label{sec:error_analysis}
+
+Discarding the two pathological configurations identified below, the LBM recovers the analytical growth rate with a relative error between $2.1\%$ and $6.7\%$ (mean $\approx 4.4\%$), with log-linear fits of quality $R^2 \ge 0.95$ and typically $R^2 > 0.99$. Given that the measured quantity is an exponential \emph{rate} --- the logarithmic derivative of an amplitude that itself must be reconstructed from a diffuse interface --- this level of agreement constitutes a quantitative validation of the instability physics encoded in the solver, not merely a qualitative one.
+
+\paragraph{Interface thickness (Nyquist floor).} Group AB exposes a sharp lower bound on the admissible interface width. The $W=1$ case overpredicts the rate by $43.9\%$ with a poor fit ($R^2 = 0.75$): a single-cell diffuse interface violates the Nyquist criterion for resolving the phase-field gradients on the D2Q9 lattice, so the surface-tension stress is corrupted by spurious currents and the interface advects faster than physical. Increasing the thickness to $W=2$ collapses the error to $2.1\%$, and $W=4$ yields a near-perfect fit ($R^2 = 1.000$) at $5.7\%$. A diffuse interface of at least two lattice units is therefore a prerequisite for quantitative agreement; below it, the comparison is dominated by discretisation artefacts rather than by the modelled physics.
+
+\paragraph{Initial amplitude (signal-to-noise floor).} The amplitude sweeps reveal a competing constraint at the opposite extreme. Reducing the initial amplitude sharpens adherence to the linear regime --- the $A_0 = W/10$ cases sit slightly above the target and the larger $A_0 = W/5$ cases slightly below, consistent with earlier onset of nonlinear saturation at larger amplitudes --- but an excessively small perturbation degrades the measurement. The $A_0 = W/20 = 0.15$ lu case (Group AD) is the worst offender at $33.8\%$ error with $R^2 = 0.731$: the perturbation is comparable to the residual spurious-current noise floor, so the extracted slope is dominated by numerical artefacts and the linear window collapses to its six-point minimum. A useful initial amplitude must thus be small relative to the interface thickness yet large relative to the spurious-current background; the data place the practical optimum near $A_0 \approx W/10$.
+
+\paragraph{Robustness variants.} The \texttt{Mlow} and \texttt{linvisc} variants of Group AD ($3.5\%$ and $4.2\%$) fall squarely within the well-resolved band, confirming that the agreement is insensitive to the secondary solver options and is governed by the two resolution constraints above. Across the well-resolved set, the median of the instantaneous rate $s_{\mathrm{loc}}$ over the linear window (an estimator independent of the global exponential fit) tracks the polyfit slope to within one to two percentage points, providing an internal consistency check on the extracted rates.
+
+\paragraph{Summary.} The numerical and analytical growth rates agree to within $\sim\!2$--$7\%$ over the entire well-resolved parameter window, with the two outliers explained by the independent failure modes of an under-resolved interface ($W=1$) and an under-driven perturbation ($A_0 = W/20$). The viscous-dominated long-wave instability ($\zeta_{\mathrm{ana}} \approx 3.745$, with a sub-$1\%$ capillary correction) predicted by the linear stability analysis of Section~\ref{sec:lsa} is thereby quantitatively reproduced by the lattice-Boltzmann solver, closing the validation loop between the analytical and numerical components of this work.
