@@ -28,23 +28,6 @@ which suppresses the staircase quantisation error that would otherwise contamina
 \end{equation}
 The analytical counterpart $\zeta_{\mathrm{ana}}$ is evaluated directly from the dimensionless dispersion relation~\eqref{eq:dispersion_nondim} at the simulated wavenumber $\alpha = 2\pi m$, and the agreement is quantified by the relative error $\varepsilon = |s_{\mathrm{num}} - s_{\mathrm{ana}}|/|s_{\mathrm{ana}}|$.
 
-\subsection{Simulation Matrix}
-\label{sec:sim_matrix}
-
-All cases share the same target physical regime: a single fundamental mode ($m = 1$, $\alpha = 2\pi$), viscosity ratio $M = \mu_2/\mu_1 = 4$, Darcy number $\mathrm{Da} = K_0/N_y^2 \approx 1.25\times10^{-4}$, capillary number $\mathrm{Ca} = \nu_1 U/\sigma = 0.25$, and no magnetic forcing ($\mathrm{Ca}_m = 0$, $\mathrm{Bo} = 0$). Under these parameters the dispersion relation~\eqref{eq:dispersion_nondim} predicts a single positive (unstable) growth rate
-\begin{equation}
-    \zeta_{\mathrm{ana}} = \alpha\,\frac{M-1}{M+1} - \frac{\mathrm{Da}}{\mathrm{Ca}\,(1+M)}\,\alpha^3
-    = \underbrace{3.770}_{\text{viscous}} \;-\; \underbrace{0.025}_{\text{capillary}} \;\approx\; 3.745 ,
-    \label{eq:zeta_target}
-\end{equation}
-so the long-wave instability at $m=1$ is overwhelmingly viscous-driven, the capillary correction amounting to less than $1\%$ of the total. This is the single analytical target against which every simulation is compared.
-
-The simulations are organised in three groups that vary the numerical resolution of the interface while holding the physics fixed:
-\begin{itemize}
-    \item \textbf{Group AB} ($N_y = 800$): a sweep of the diffuse-interface thickness $W \in \{1,2,4\}$ lattice units at fixed relative amplitude $A_0 = W/5$, isolating the effect of interface resolution (the phase-field number $k\xi = 2\pi m W/N_y$).
-    \item \textbf{Group AC} ($N_y = 1024$): a refined-grid cross-sweep of thickness $W \in \{3,4\}$ and initial amplitude $A_0 \in \{W/10,\,W/5\}$, separating the influence of interface thickness from that of the initial perturbation amplitude.
-    \item \textbf{Group AD} ($N_y = 1024$, $W = 3$): control variants probing robustness --- a reduced-mobility configuration (\texttt{Mlow}), a linearised-viscosity variant (\texttt{linvisc}), and a very small initial amplitude ($A_0 = W/20 = 0.15$ lu).
-\end{itemize}
 
 \subsection{Comparison with the Linear Dispersion Relation}
 \label{sec:lsa_comparison}
