@@ -1,0 +1,31 @@
+[
+  {
+    "comment": "CASO DEFINITIVO DE RAMIFICACAO (tip-splitting), campo NORMAL, M=1. Objetivo: ver os dedos RACHAREM em mais dedos (numero crescente), o que os casos A/B nao mostraram porque (1) semearam o proprio modo critico (cada dedo = 1 lambda_c, marginalmente estavel) e (2) ficaram no onset linear. Aqui combinamos os 4 ingredientes da ramificacao: [i] MALHA FINA NY=1024 (Cn=W/NY=0.0039, metade do NY=500): kW no lambda_c cai p/ ~0.20 (vs 0.30 no A), entao os modos curtos crescem a fracao bem maior da LSA. [ii] K HETEROGENEO correlacionado (gatilho de banda larga): K log-normal media=K_0, corr=50 l.u. (~lambda_c/2.5), sigma_ln=0.5 -> Re_K local 0.18-0.82 (<1, Darcy ok em 100% dos nos); cria canais/barreiras que nucleiam e dividem os dedos assimetricamente (ramificacao realista de meio poroso). [iii] POUCOS DEDOS LARGOS: mode_m=3 -> 3 dedos de largura NY/3=341 l.u. = 2.7*lambda_c; cada ponta larga e instavel e racha em ~2-3 sub-dedos -> ~8 dedos (=N_lambda=Bo*Lambda/3pi=8). [iv] REGIME NAO-LINEAR garantido: amplitude inicial GRANDE (40 l.u.) ja parte visivel; s_ana=2.3e-5/passo -> ~5.8 e-foldings LSA em 250k (mesmo amortecido, chega ao nao-linear e satura). Grupos: Da=K_0/NY^2=0.002, Ca=nu*U/sigma=4.0, Bo_mag=chi*H0^2*NY/sigma=176, Lambda=0.4286, Re_K_med=0.40, Ma=U/cs=0.0026, lambda_c=128 l.u. U=1.5e-3 e X_CENTER=500 mantem a frente avancando (cavidade nao bate no inlet). CUSTO ~15-22h (2.1M nos, 2.8x os A/B) e ~16 GB de VTK (100 snaps a 2048x1024) - reduzir SNAPSHOT_STEPS se faltar disco. CAVEAT: a Poisson/SOR roda 15 varreduras fixas/passo; em NY=1024 pode sub-convergir o campo magnetico - vigiar a consistencia de |H|. Para rodar: renomear este arquivo para casos.json.",
+    "id_caso": "Ramif_NY1024_Khetero",
+    "mode_m": 3,
+    "amplitude": 40.0,
+    "NY": 1024,
+    "NX": 2048,
+    "MAX_ITER": 250000,
+    "SNAPSHOT_STEPS": 100,
+    "TAU_IN": 1.0,
+    "TAU_OUT": 1.0,
+    "U_INLET": 0.0015,
+    "K_0": 2097,
+    "M_MOBILITY": 0.05,
+    "SIGMA": 6.25e-05,
+    "INTERFACE_WIDTH": 4.0,
+    "CH_SUBSTEPS": 60,
+    "METODO_MAGNETISMO": "POISSON",
+    "H0": 0.002676,
+    "CHI_MAX": 1.5,
+    "SOR_OMEGA": 1.85,
+    "H_ANGLE": 0.0,
+    "VISC_LINEAR": false,
+    "X_CENTER": 500.0,
+    "K_HETEROGENEO": true,
+    "K_CORR_LENGTH": 50.0,
+    "K_SIGMA_LN": 0.5,
+    "K_SEED": 12345
+  }
+]

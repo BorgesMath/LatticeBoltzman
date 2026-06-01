@@ -30,13 +30,47 @@ def _init_kernel(phi, f, psi, rho, u_x, ny, nx, mode_m, amplitude, interface_wid
                 f[y, x, i] = W_LBM[i] * rho_local * (1.0 + 3.0 * cu + 4.5 * (cu ** 2) - 1.5 * u_sq)
 
 
+def _campo_K_heterogeneo(ny, nx, K_0, corr_length, sigma_ln, seed=0):
+    """
+    Campo de permeabilidade log-normal correlacionado, média aritmética = K_0.
+    "Homogêneo no geral, heterogêneo em pequenas seções": ruído branco gaussiano
+    filtrado no espaço de Fourier por um núcleo gaussiano de comprimento de
+    correlação `corr_length` (l.u.), periódico em x e y, depois exponenciado
+    (log-normal). `g` é cortado em ±3 desvios para evitar K extremo (Forchheimer
+    local em poros muito permeáveis / barreiras quase impermeáveis).
+
+    Serve de gatilho de banda larga para a ramificação dos dedos (tip-splitting):
+    perturba a interface em todos os comprimentos de onda e cria canais
+    preferenciais que nucleiam e dividem os dedos. Roda 1× na inicialização
+    (numpy puro; o kernel LBM já lê K_field[y,x] por nó).
+    """
+    rng = np.random.default_rng(seed)
+    ruido = rng.standard_normal((ny, nx))
+    kx = np.fft.fftfreq(nx).reshape(1, nx)
+    ky = np.fft.fftfreq(ny).reshape(ny, 1)
+    k2 = (2.0 * np.pi * kx) ** 2 + (2.0 * np.pi * ky) ** 2
+    filtro = np.exp(-0.25 * k2 * corr_length ** 2)   # covariância gaussiana ~corr_length
+    g = np.fft.ifft2(np.fft.fft2(ruido) * filtro).real
+    g -= g.mean()
+    std = g.std()
+    if std > 1e-12:
+        g /= std                                     # variância unitária
+    g = np.clip(g, -3.0, 3.0)                         # corta caudas
+    K = K_0 * np.exp(sigma_ln * g)
+    K *= K_0 / K.mean()                               # média aritmética exata = K_0
+    return K.astype(np.float64)
+
+
 def initialize_fields(params):
     """
     inicializa os campos
     """
     ny, nx = params["NY"], params["NX"]
     u_inlet = params["U_INLET"]
-    x_center = 80.0
+    # Posição inicial da interface (l.u. a partir do inlet). Parametrizável via
+    # casos.json ("X_CENTER"); default 80 preserva o comportamento histórico.
+    # Valores maiores dão folga para a cavidade (trough) recuar sem bater no inlet.
+    x_center = float(params.get("X_CENTER", 80.0))
 
     # =========================================================================
     # CÁLCULO ANALÍTICO DO FLUXO BASE DE DARCY (Evita decaimento da velocidade)
@@ -66,6 +100,14 @@ def initialize_fields(params):
     u_x = np.empty((ny, nx), dtype=np.float64)
     u_y = np.zeros((ny, nx), dtype=np.float64)
     K_field = np.ones((ny, nx), dtype=np.float64) * params["K_0"]
+    if params.get("K_HETEROGENEO", False):
+        # Meio poroso heterogêneo (média = K_0): promove nucleação/ramificação
+        # dos dedos. Ver casos_Ramificacao.json e _campo_K_heterogeneo acima.
+        K_field = _campo_K_heterogeneo(
+            ny, nx, params["K_0"],
+            float(params.get("K_CORR_LENGTH", 40.0)),
+            float(params.get("K_SIGMA_LN", 0.5)),
+            int(params.get("K_SEED", 0)))
 
     Fx = np.zeros((ny, nx), dtype=np.float64)
     Fy = np.zeros((ny, nx), dtype=np.float64)

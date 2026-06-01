@@ -1,6 +1,7 @@
 # Nucleo da simulacao (LBM, inicializacao, Cahn-Hilliard, magnetismo)
 numpy==2.4.2
 numba==0.64.0
+tqdm==4.67.1
 
 # Pos-processamento e visualizacao
 matplotlib==3.10.8
